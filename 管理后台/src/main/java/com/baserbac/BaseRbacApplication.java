@@ -9,7 +9,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
  * 通用后台权限管理系统启动类
  */
 @SpringBootApplication
-@MapperScan("com.baserbac.mapper")
+@MapperScan({"com.baserbac.mapper", "com.baserbac.scm.mapper"})
 @EnableAspectJAutoProxy
 public class BaseRbacApplication {
 

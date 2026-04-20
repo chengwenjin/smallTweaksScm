@@ -168,7 +168,7 @@ public class SupplierQualificationService {
 
         qualification.setAuditStatus(auditDTO.getAuditStatus());
         qualification.setAuditRemark(auditDTO.getAuditRemark());
-        qualification.setAuditBy(SecurityUtil.getUsername());
+        qualification.setAuditBy(SecurityUtil.getCurrentUsername());
         qualification.setAuditTime(LocalDateTime.now());
         
         qualificationMapper.updateById(qualification);
