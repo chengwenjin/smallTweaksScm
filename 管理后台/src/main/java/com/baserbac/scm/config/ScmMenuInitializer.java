@@ -1,6 +1,7 @@
 package com.baserbac.scm.config;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baserbac.common.constant.RedisKeyConstant;
 import com.baserbac.entity.SysMenu;
 import com.baserbac.entity.SysRoleMenu;
 import com.baserbac.mapper.MenuMapper;
@@ -9,10 +10,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Component
@@ -22,6 +25,7 @@ public class ScmMenuInitializer implements CommandLineRunner {
 
     private final MenuMapper menuMapper;
     private final RoleMenuMapper roleMenuMapper;
+    private final RedisTemplate<String, Object> redisTemplate;
 
     private static final Long ADMIN_ROLE_ID = 1L;
 
@@ -29,13 +33,15 @@ public class ScmMenuInitializer implements CommandLineRunner {
     public void run(String... args) {
         log.info("开始初始化SCM菜单...");
         
+        clearMenuCache();
+        
         try {
             LambdaQueryWrapper<SysMenu> wrapper = new LambdaQueryWrapper<>();
             wrapper.eq(SysMenu::getPath, "/scm");
             Long count = menuMapper.selectCount(wrapper);
             
             if (count > 0) {
-                log.info("SCM菜单已存在，跳过初始化");
+                log.info("SCM菜单已存在，跳过初始化（缓存已清除）");
                 return;
             }
             
@@ -54,6 +60,26 @@ public class ScmMenuInitializer implements CommandLineRunner {
             
         } catch (Exception e) {
             log.error("SCM菜单初始化失败", e);
+        }
+    }
+
+    private void clearMenuCache() {
+        try {
+            Set<String> menuKeys = redisTemplate.keys(RedisKeyConstant.MENUS_PREFIX + "*");
+            Set<String> permsKeys = redisTemplate.keys(RedisKeyConstant.PERMISSIONS_PREFIX + "*");
+            
+            if (menuKeys != null && !menuKeys.isEmpty()) {
+                redisTemplate.delete(menuKeys);
+                log.info("清除菜单缓存: {} 条", menuKeys.size());
+            }
+            
+            if (permsKeys != null && !permsKeys.isEmpty()) {
+                redisTemplate.delete(permsKeys);
+                log.info("清除权限缓存: {} 条", permsKeys.size());
+            }
+            
+        } catch (Exception e) {
+            log.warn("清除缓存失败", e);
         }
     }
 
