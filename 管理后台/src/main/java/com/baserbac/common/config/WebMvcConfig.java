@@ -4,11 +4,15 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.io.File;
+
 /**
- * WebMvc 配置（Knife4j 静态资源映射）
+ * WebMvc 配置（Knife4j 静态资源映射 + 文件上传静态资源映射）
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
+
+    private static final String UPLOAD_PATH = "uploads/";
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -27,5 +31,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
         // OpenAPI docs
         registry.addResourceHandler("/v3/api-docs/**")
                 .addResourceLocations("classpath:/META-INF/resources/");
+        
+        // 文件上传静态资源映射
+        String uploadAbsolutePath = new File(UPLOAD_PATH).getAbsolutePath() + File.separator;
+        registry.addResourceHandler("/uploads/**")
+                .addResourceLocations("file:" + uploadAbsolutePath);
     }
 }
