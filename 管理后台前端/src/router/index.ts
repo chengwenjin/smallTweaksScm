@@ -48,6 +48,24 @@ const routes: RouteRecordRaw[] = [
         name: 'LoginLog',
         component: () => import('@/views/system/LoginLog.vue'),
         meta: { title: '登录日志' }
+      },
+      {
+        path: 'scm/supplier',
+        name: 'SupplierManagement',
+        component: () => import('@/views/scm/Supplier.vue'),
+        meta: { title: '供应商管理' }
+      },
+      {
+        path: 'scm/qualification',
+        name: 'QualificationManagement',
+        component: () => import('@/views/scm/Qualification.vue'),
+        meta: { title: '资质审核' }
+      },
+      {
+        path: 'scm/alert',
+        name: 'AlertManagement',
+        component: () => import('@/views/scm/Alert.vue'),
+        meta: { title: '预警管理' }
       }
     ]
   }
