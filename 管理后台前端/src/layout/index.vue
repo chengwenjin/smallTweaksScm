@@ -37,6 +37,16 @@
           <el-menu-item index="/system/operation-logs">操作日志</el-menu-item>
           <el-menu-item index="/system/login-logs">登录日志</el-menu-item>
         </el-sub-menu>
+
+        <el-sub-menu index="/scm">
+          <template #title>
+            <el-icon><OfficeBuilding /></el-icon>
+            <span>SCM管理</span>
+          </template>
+          <el-menu-item index="/scm/supplier">供应商管理</el-menu-item>
+          <el-menu-item index="/scm/qualification">资质审核</el-menu-item>
+          <el-menu-item index="/scm/alert">预警管理</el-menu-item>
+        </el-sub-menu>
       </el-menu>
     </el-aside>
 
