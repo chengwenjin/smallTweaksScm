@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -249,5 +250,66 @@ public class SupplierService {
             .createTime(q.getCreateTime())
             .updateTime(q.getUpdateTime())
             .build();
+    }
+
+    public void addTestData() {
+        List<SupplierCreateDTO> testDataList = new ArrayList<>();
+        
+        // 原材料供应商
+        SupplierCreateDTO dto1 = new SupplierCreateDTO();
+        dto1.setSupplierCode("SUP001");
+        dto1.setSupplierName("华东原材料供应商");
+        dto1.setSupplierType(1);
+        dto1.setGrade(1);
+        dto1.setMaterialCategory(1);
+        dto1.setCooperationLevel(1);
+        dto1.setContactPerson("张三");
+        dto1.setContactPhone("13800138001");
+        dto1.setContactEmail("zhangsan@example.com");
+        dto1.setAddress("上海市浦东新区");
+        dto1.setStatus(1);
+        dto1.setRemark("优质原材料供应商");
+        testDataList.add(dto1);
+        
+        // 辅料供应商
+        SupplierCreateDTO dto2 = new SupplierCreateDTO();
+        dto2.setSupplierCode("SUP002");
+        dto2.setSupplierName("华南辅料供应商");
+        dto2.setSupplierType(2);
+        dto2.setGrade(2);
+        dto2.setMaterialCategory(2);
+        dto2.setCooperationLevel(2);
+        dto2.setContactPerson("李四");
+        dto2.setContactPhone("13800138002");
+        dto2.setContactEmail("lisi@example.com");
+        dto2.setAddress("广州市天河区");
+        dto2.setStatus(1);
+        dto2.setRemark("专业辅料供应商");
+        testDataList.add(dto2);
+        
+        // 设备供应商
+        SupplierCreateDTO dto3 = new SupplierCreateDTO();
+        dto3.setSupplierCode("SUP003");
+        dto3.setSupplierName("华北设备供应商");
+        dto3.setSupplierType(1);
+        dto3.setGrade(3);
+        dto3.setMaterialCategory(3);
+        dto3.setCooperationLevel(3);
+        dto3.setContactPerson("王五");
+        dto3.setContactPhone("13800138003");
+        dto3.setContactEmail("wangwu@example.com");
+        dto3.setAddress("北京市朝阳区");
+        dto3.setStatus(1);
+        dto3.setRemark("高端设备供应商");
+        testDataList.add(dto3);
+        
+        // 批量创建测试数据
+        for (SupplierCreateDTO dto : testDataList) {
+            try {
+                createSupplier(dto);
+            } catch (Exception e) {
+                // 忽略已存在的记录
+            }
+        }
     }
 }

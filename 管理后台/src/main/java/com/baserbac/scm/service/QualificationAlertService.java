@@ -222,4 +222,57 @@ public class QualificationAlertService {
             .createTime(alert.getCreateTime())
             .build();
     }
+
+    public void addTestData() {
+        // 查找现有资质
+        List<SupplierQualification> qualifications = qualificationMapper.selectList(null);
+        if (qualifications.isEmpty()) {
+            return;
+        }
+        
+        LocalDate today = LocalDate.now();
+        
+        // 为部分资质创建预警
+        for (int i = 0; i < Math.min(3, qualifications.size()); i++) {
+            SupplierQualification q = qualifications.get(i);
+            
+            // 创建即将到期预警
+            if (i == 0) {
+                QualificationAlert alert1 = new QualificationAlert();
+                alert1.setQualificationId(q.getId());
+                alert1.setSupplierId(q.getSupplierId());
+                alert1.setAlertType(1);
+                alert1.setAlertTitle("资质即将到期提醒");
+                alert1.setAlertContent("供应商的资质将于30天后到期，请及时更新。");
+                alert1.setAlertDate(today);
+                alert1.setDaysBeforeExpiry(30);
+                alert1.setIsRead(0);
+                
+                try {
+                    alertMapper.insert(alert1);
+                } catch (Exception e) {
+                    // 忽略已存在的记录
+                }
+            }
+            
+            // 创建已过期预警
+            if (i == 1) {
+                QualificationAlert alert2 = new QualificationAlert();
+                alert2.setQualificationId(q.getId());
+                alert2.setSupplierId(q.getSupplierId());
+                alert2.setAlertType(2);
+                alert2.setAlertTitle("资质已过期提醒");
+                alert2.setAlertContent("供应商的资质已过期，请立即处理。");
+                alert2.setAlertDate(today);
+                alert2.setDaysBeforeExpiry(0);
+                alert2.setIsRead(0);
+                
+                try {
+                    alertMapper.insert(alert2);
+                } catch (Exception e) {
+                    // 忽略已存在的记录
+                }
+            }
+        }
+    }
 }

@@ -235,4 +235,51 @@ public class SupplierQualificationService {
             .updateTime(q.getUpdateTime())
             .build();
     }
+
+    public void addTestData() {
+        // 查找现有供应商
+        List<Supplier> suppliers = supplierMapper.selectList(null);
+        if (suppliers.isEmpty()) {
+            return;
+        }
+        
+        // 为每个供应商添加资质
+        for (Supplier supplier : suppliers) {
+            // 营业执照
+            QualificationCreateDTO dto1 = new QualificationCreateDTO();
+            dto1.setSupplierId(supplier.getId());
+            dto1.setQualificationType("BUSINESS_LICENSE");
+            dto1.setQualificationName("营业执照");
+            dto1.setCertificateNo("91310000X" + supplier.getId());
+            dto1.setIssuingAuthority("工商行政管理局");
+            dto1.setIssueDate(LocalDate.now().minusYears(1));
+            dto1.setExpiryDate(LocalDate.now().plusYears(1));
+            dto1.setIsLongTerm(0);
+            dto1.setRemark("供应商营业执照");
+            
+            try {
+                createQualification(dto1);
+            } catch (Exception e) {
+                // 忽略已存在的记录
+            }
+            
+            // 税务登记证
+            QualificationCreateDTO dto2 = new QualificationCreateDTO();
+            dto2.setSupplierId(supplier.getId());
+            dto2.setQualificationType("TAX_REGISTRATION");
+            dto2.setQualificationName("税务登记证");
+            dto2.setCertificateNo("31000000X" + supplier.getId());
+            dto2.setIssuingAuthority("税务局");
+            dto2.setIssueDate(LocalDate.now().minusYears(1));
+            dto2.setExpiryDate(LocalDate.now().plusYears(1));
+            dto2.setIsLongTerm(0);
+            dto2.setRemark("供应商税务登记证");
+            
+            try {
+                createQualification(dto2);
+            } catch (Exception e) {
+                // 忽略已存在的记录
+            }
+        }
+    }
 }
