@@ -44,13 +44,37 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
 
     private void clearOldTestData() {
         try {
+            checkAndAddColumn("scm_qualification_alert", "create_by", "VARCHAR(50) COMMENT '创建人'");
+            
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
+            
             jdbcTemplate.execute("TRUNCATE TABLE scm_qualification_alert");
             jdbcTemplate.execute("TRUNCATE TABLE scm_supplier_qualification");
             jdbcTemplate.execute("TRUNCATE TABLE scm_supplier_classification_log");
             jdbcTemplate.execute("TRUNCATE TABLE scm_supplier");
+            
+            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
+            
             log.info("已清空旧的测试数据");
         } catch (Exception e) {
             log.warn("清空旧数据失败（可能是表不存在）: {}", e.getMessage());
+        }
+    }
+
+    private void checkAndAddColumn(String tableName, String columnName, String columnDefinition) {
+        try {
+            String sql = "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?";
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class, tableName, columnName);
+            
+            if (count == null || count == 0) {
+                String alterSql = String.format("ALTER TABLE `%s` ADD COLUMN `%s` %s", tableName, columnName, columnDefinition);
+                jdbcTemplate.execute(alterSql);
+                log.info("添加字段成功: {}.{}", tableName, columnName);
+            } else {
+                log.debug("字段已存在: {}.{}", tableName, columnName);
+            }
+        } catch (Exception e) {
+            log.error("检查或添加字段失败: {}.{}", tableName, columnName, e);
         }
     }
 
@@ -269,7 +293,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             return;
         }
         
-        String sql = "INSERT INTO scm_qualification_alert (supplier_id, qualification_id, alert_type, alert_title, alert_content, days_before_expiry, is_read, alert_date, create_by, create_time) VALUES (?, 0, ?, ?, ?, ?, ?, ?, 'admin', NOW())";
+        String sql = "INSERT INTO scm_qualification_alert (supplier_id, qualification_id, alert_type, alert_title, alert_content, days_before_expiry, is_read, alert_date, create_by, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'admin', NOW())";
         
         try {
             List<Map<String, Object>> qualifications = jdbcTemplate.queryForList(
@@ -277,6 +301,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             
             int count = 0;
             for (Map<String, Object> qual : qualifications) {
+                Long qualId = ((Number) qual.get("id")).longValue();
                 Long supplierId = ((Number) qual.get("supplier_id")).longValue();
                 Integer alertStatus = ((Number) qual.get("alert_status")).intValue();
                 
@@ -288,7 +313,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
                         : "供应商的资质已过期，请立即处理。";
                     int days = alertStatus == 1 ? 30 : -15;
                     
-                    jdbcTemplate.update(sql, supplierId, alertType, title, content, days, 0, LocalDate.now());
+                    jdbcTemplate.update(sql, supplierId, qualId, alertType, title, content, days, 0, LocalDate.now());
                     count++;
                 }
             }
@@ -297,8 +322,12 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
                 List<Map<String, Object>> normalQuals = jdbcTemplate.queryForList(
                     "SELECT id, supplier_id FROM scm_supplier_qualification WHERE alert_status = 0 LIMIT 1");
                 for (Map<String, Object> qual : normalQuals) {
+                    Long qualId = ((Number) qual.get("id")).longValue();
+                    Long supplierId = ((Number) qual.get("supplier_id")).longValue();
+                    
                     jdbcTemplate.update(sql, 
-                        ((Number) qual.get("supplier_id")).longValue(), 
+                        supplierId, 
+                        qualId, 
                         0, "资质有效期正常", 
                         "供应商的资质有效期正常。", 
                         365, 1, 
