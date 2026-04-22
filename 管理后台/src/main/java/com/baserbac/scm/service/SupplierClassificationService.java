@@ -98,4 +98,31 @@ public class SupplierClassificationService {
             .createTime(log.getCreateTime())
             .build();
     }
+
+    public void addTestData() {
+        // 查找现有供应商
+        List<Supplier> suppliers = supplierMapper.selectList(null);
+        if (suppliers.isEmpty()) {
+            return;
+        }
+        
+        // 为每个供应商添加分级分类记录
+        for (Supplier supplier : suppliers) {
+            // 初始分级记录
+            SupplierClassificationLog log = new SupplierClassificationLog();
+            log.setSupplierId(supplier.getId());
+            log.setOldMaterialCategory(null);
+            log.setNewMaterialCategory(supplier.getMaterialCategory());
+            log.setOldCooperationLevel(null);
+            log.setNewCooperationLevel(supplier.getCooperationLevel());
+            log.setChangeReason("初始分级");
+            log.setCreateBy("admin");
+            
+            try {
+                classificationLogMapper.insert(log);
+            } catch (Exception e) {
+                // 忽略已存在的记录
+            }
+        }
+    }
 }
