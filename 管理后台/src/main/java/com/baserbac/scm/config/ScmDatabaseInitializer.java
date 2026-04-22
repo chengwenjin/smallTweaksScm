@@ -45,6 +45,10 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
     private void clearOldTestData() {
         try {
             checkAndAddColumn("scm_qualification_alert", "create_by", "VARCHAR(50) COMMENT '创建人'");
+            checkAndAddColumn("scm_supplier", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
+            checkAndAddColumn("scm_supplier_qualification", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
+            checkAndAddColumn("scm_qualification_alert", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
+            checkAndAddColumn("scm_supplier_classification_log", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
             
@@ -170,7 +174,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         s5.put("remark", "重要辅料战略供应商");
         suppliers.add(s5);
         
-        String sql = "INSERT INTO scm_supplier (supplier_code, supplier_name, supplier_type, grade, material_category, cooperation_level, contact_person, contact_phone, contact_email, address, status, remark, create_by, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 'admin', NOW(), NOW())";
+        String sql = "INSERT INTO scm_supplier (supplier_code, supplier_name, supplier_type, grade, material_category, cooperation_level, contact_person, contact_phone, contact_email, address, status, remark, is_deleted, create_by, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 'admin', NOW(), NOW())";
         
         for (Map<String, Object> supplier : suppliers) {
             try {
@@ -208,7 +212,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             return;
         }
         
-        String sql = "INSERT INTO scm_supplier_qualification (supplier_id, qualification_type, qualification_name, certificate_no, issuing_authority, issue_date, expiry_date, is_long_term, audit_status, alert_status, remark, create_by, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'admin', NOW(), NOW())";
+        String sql = "INSERT INTO scm_supplier_qualification (supplier_id, qualification_type, qualification_name, certificate_no, issuing_authority, issue_date, expiry_date, is_long_term, audit_status, alert_status, is_deleted, create_by, create_time, update_time, remark) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin', NOW(), NOW(), ?)";
         
         int count = 0;
         
@@ -293,7 +297,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             return;
         }
         
-        String sql = "INSERT INTO scm_qualification_alert (supplier_id, qualification_id, alert_type, alert_title, alert_content, days_before_expiry, is_read, alert_date, create_by, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'admin', NOW())";
+        String sql = "INSERT INTO scm_qualification_alert (supplier_id, qualification_id, alert_type, alert_title, alert_content, days_before_expiry, is_read, alert_date, is_deleted, create_by, create_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin', NOW())";
         
         try {
             List<Map<String, Object>> qualifications = jdbcTemplate.queryForList(
@@ -347,7 +351,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             return;
         }
         
-        String sql = "INSERT INTO scm_supplier_classification_log (supplier_id, old_material_category, new_material_category, old_cooperation_level, new_cooperation_level, change_reason, create_by, create_time) VALUES (?, ?, ?, ?, ?, ?, 'admin', ?)";
+        String sql = "INSERT INTO scm_supplier_classification_log (supplier_id, old_material_category, new_material_category, old_cooperation_level, new_cooperation_level, change_reason, is_deleted, create_by, create_time) VALUES (?, ?, ?, ?, ?, ?, 0, 'admin', ?)";
         
         try {
             for (int i = 0; i < supplierIds.size(); i++) {
@@ -390,21 +394,21 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
 
     private void verifyData() {
         try {
-            Integer supplierCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier", Integer.class);
+            Integer supplierCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier WHERE is_deleted = 0", Integer.class);
             log.info("供应商数据: {}条", supplierCount);
             
-            Integer qualificationCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier_qualification", Integer.class);
+            Integer qualificationCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier_qualification WHERE is_deleted = 0", Integer.class);
             log.info("资质数据: {}条", qualificationCount);
             
-            Integer alertCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_qualification_alert", Integer.class);
+            Integer alertCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_qualification_alert WHERE is_deleted = 0", Integer.class);
             log.info("预警数据: {}条", alertCount);
             
-            Integer logCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier_classification_log", Integer.class);
+            Integer logCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM scm_supplier_classification_log WHERE is_deleted = 0", Integer.class);
             log.info("分级分类记录: {}条", logCount);
             
             try {
                 String supplierName = jdbcTemplate.queryForObject(
-                    "SELECT supplier_name FROM scm_supplier ORDER BY id LIMIT 1", 
+                    "SELECT supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id LIMIT 1", 
                     String.class);
                 log.info("供应商名称验证: -> {}", supplierName);
             } catch (Exception e) {
