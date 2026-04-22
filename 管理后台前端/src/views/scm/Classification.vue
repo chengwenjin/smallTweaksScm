@@ -102,7 +102,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { getClassificationLogs, setClassification } from '@/api/classification'
 
 const loading = ref(false)
-batchSubmitLoading = ref(false)
+const batchSubmitLoading = ref(false)
 const batchDialogVisible = ref(false)
 const batchFormRef = ref<FormInstance>()
 
