@@ -45,6 +45,7 @@
           </template>
           <el-menu-item index="/scm/supplier">供应商管理</el-menu-item>
           <el-menu-item index="/scm/qualification">资质审核</el-menu-item>
+          <el-menu-item index="/scm/classification">分级分类</el-menu-item>
           <el-menu-item index="/scm/alert">预警管理</el-menu-item>
         </el-sub-menu>
       </el-menu>

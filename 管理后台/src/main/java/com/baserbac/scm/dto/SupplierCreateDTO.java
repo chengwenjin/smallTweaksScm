@@ -29,6 +29,12 @@ public class SupplierCreateDTO implements Serializable {
     @Schema(description = "供应商等级：1A级 2AA级 3AAA级", example = "1")
     private Integer grade = 1;
 
+    @Schema(description = "物资类别：1原材料 2辅料 3设备", example = "1")
+    private Integer materialCategory;
+
+    @Schema(description = "合作分级：1战略 2合格 3潜在", example = "1")
+    private Integer cooperationLevel;
+
     @Schema(description = "联系人", example = "张三")
     private String contactPerson;
 

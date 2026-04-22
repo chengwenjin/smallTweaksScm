@@ -56,6 +56,9 @@ public class ScmMenuInitializer implements CommandLineRunner {
             Long alertMenuId = createAlertMenu(parentId);
             createAlertButtons(alertMenuId);
             
+            Long classificationMenuId = createClassificationMenu(parentId);
+            createClassificationButtons(classificationMenuId);
+            
             log.info("SCM菜单初始化完成");
             
         } catch (Exception e) {
@@ -200,6 +203,40 @@ public class ScmMenuInitializer implements CommandLineRunner {
         
         buttons.add(createButton(parentId, "标记已读", "scm:alert:read", 1));
         buttons.add(createButton(parentId, "全部已读", "scm:alert:readAll", 2));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createClassificationMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("分级分类");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:classification:list");
+        menu.setPath("classification");
+        menu.setComponent("scm/classification/index");
+        menu.setIcon("Grid");
+        menu.setSortOrder(3);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 分级分类, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createClassificationButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "批量设置", "scm:classification:set", 1));
+        buttons.add(createButton(parentId, "查看记录", "scm:classification:logs", 2));
         
         for (SysMenu btn : buttons) {
             menuMapper.insert(btn);

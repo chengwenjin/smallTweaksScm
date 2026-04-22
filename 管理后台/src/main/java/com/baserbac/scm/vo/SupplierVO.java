@@ -37,6 +37,12 @@ public class SupplierVO implements Serializable {
     @Schema(description = "供应商等级：1A级 2AA级 3AAA级")
     private Integer grade;
 
+    @Schema(description = "物资类别：1原材料 2辅料 3设备")
+    private Integer materialCategory;
+
+    @Schema(description = "合作分级：1战略 2合格 3潜在")
+    private Integer cooperationLevel;
+
     @Schema(description = "联系人")
     private String contactPerson;
 

@@ -41,6 +41,8 @@ public class SupplierService {
                .like(queryDTO.getSupplierName() != null, Supplier::getSupplierName, queryDTO.getSupplierName())
                .eq(queryDTO.getSupplierType() != null, Supplier::getSupplierType, queryDTO.getSupplierType())
                .eq(queryDTO.getGrade() != null, Supplier::getGrade, queryDTO.getGrade())
+               .eq(queryDTO.getMaterialCategory() != null, Supplier::getMaterialCategory, queryDTO.getMaterialCategory())
+               .eq(queryDTO.getCooperationLevel() != null, Supplier::getCooperationLevel, queryDTO.getCooperationLevel())
                .eq(queryDTO.getStatus() != null, Supplier::getStatus, queryDTO.getStatus())
                .eq(queryDTO.getAuditStatus() != null, Supplier::getAuditStatus, queryDTO.getAuditStatus())
                .orderByDesc(Supplier::getCreateTime);
@@ -82,6 +84,8 @@ public class SupplierService {
         supplier.setSupplierName(createDTO.getSupplierName());
         supplier.setSupplierType(createDTO.getSupplierType());
         supplier.setGrade(createDTO.getGrade());
+        supplier.setMaterialCategory(createDTO.getMaterialCategory());
+        supplier.setCooperationLevel(createDTO.getCooperationLevel());
         supplier.setContactPerson(createDTO.getContactPerson());
         supplier.setContactPhone(createDTO.getContactPhone());
         supplier.setContactEmail(createDTO.getContactEmail());
@@ -108,6 +112,12 @@ public class SupplierService {
         }
         if (updateDTO.getGrade() != null) {
             supplier.setGrade(updateDTO.getGrade());
+        }
+        if (updateDTO.getMaterialCategory() != null) {
+            supplier.setMaterialCategory(updateDTO.getMaterialCategory());
+        }
+        if (updateDTO.getCooperationLevel() != null) {
+            supplier.setCooperationLevel(updateDTO.getCooperationLevel());
         }
         if (updateDTO.getContactPerson() != null) {
             supplier.setContactPerson(updateDTO.getContactPerson());
@@ -159,6 +169,8 @@ public class SupplierService {
             .supplierName(supplier.getSupplierName())
             .supplierType(supplier.getSupplierType())
             .grade(supplier.getGrade())
+            .materialCategory(supplier.getMaterialCategory())
+            .cooperationLevel(supplier.getCooperationLevel())
             .contactPerson(supplier.getContactPerson())
             .contactPhone(supplier.getContactPhone())
             .contactEmail(supplier.getContactEmail())
@@ -189,6 +201,8 @@ public class SupplierService {
             .supplierName(supplier.getSupplierName())
             .supplierType(supplier.getSupplierType())
             .grade(supplier.getGrade())
+            .materialCategory(supplier.getMaterialCategory())
+            .cooperationLevel(supplier.getCooperationLevel())
             .contactPerson(supplier.getContactPerson())
             .contactPhone(supplier.getContactPhone())
             .contactEmail(supplier.getContactEmail())

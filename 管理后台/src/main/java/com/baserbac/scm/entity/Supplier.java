@@ -26,6 +26,10 @@ public class Supplier implements Serializable {
 
     private Integer grade;
 
+    private Integer materialCategory;
+
+    private Integer cooperationLevel;
+
     private String contactPerson;
 
     private String contactPhone;
