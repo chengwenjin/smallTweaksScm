@@ -66,6 +66,12 @@ const routes: RouteRecordRaw[] = [
         name: 'AlertManagement',
         component: () => import('@/views/scm/Alert.vue'),
         meta: { title: '预警管理' }
+      },
+      {
+        path: 'scm/classification',
+        name: 'ClassificationManagement',
+        component: () => import('@/views/scm/Classification.vue'),
+        meta: { title: '分级分类' }
       }
     ]
   }

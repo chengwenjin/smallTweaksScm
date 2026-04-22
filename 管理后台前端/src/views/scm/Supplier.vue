@@ -16,6 +16,20 @@
             <el-option label="已淘汰" :value="3" />
           </el-select>
         </el-form-item>
+        <el-form-item label="物资类别">
+          <el-select v-model="searchForm.materialCategory" placeholder="请选择" clearable style="width: 120px">
+            <el-option label="原材料" :value="1" />
+            <el-option label="辅料" :value="2" />
+            <el-option label="设备" :value="3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="合作分级">
+          <el-select v-model="searchForm.cooperationLevel" placeholder="请选择" clearable style="width: 120px">
+            <el-option label="战略" :value="1" />
+            <el-option label="合格" :value="2" />
+            <el-option label="潜在" :value="3" />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
@@ -45,6 +59,16 @@
         </el-table-column>
         <el-table-column prop="contactPerson" label="联系人" width="100" />
         <el-table-column prop="contactPhone" label="联系电话" width="130" />
+        <el-table-column prop="materialCategory" label="物资类别" width="100">
+          <template #default="{ row }">
+            {{ getMaterialCategoryName(row.materialCategory) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="cooperationLevel" label="合作分级" width="100">
+          <template #default="{ row }">
+            {{ getCooperationLevelName(row.cooperationLevel) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)">
@@ -120,6 +144,20 @@
             <el-radio :value="3">已淘汰</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="物资类别" prop="materialCategory">
+          <el-select v-model="form.materialCategory" placeholder="请选择" style="width: 100%">
+            <el-option label="原材料" :value="1" />
+            <el-option label="辅料" :value="2" />
+            <el-option label="设备" :value="3" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="合作分级" prop="cooperationLevel">
+          <el-select v-model="form.cooperationLevel" placeholder="请选择" style="width: 100%">
+            <el-option label="战略" :value="1" />
+            <el-option label="合格" :value="2" />
+            <el-option label="潜在" :value="3" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="备注" prop="remark">
           <el-input v-model="form.remark" type="textarea" :rows="3" placeholder="请输入备注" />
         </el-form-item>
@@ -148,7 +186,9 @@ const formRef = ref<FormInstance>()
 const searchForm = reactive({
   supplierCode: '',
   supplierName: '',
-  status: null as number | null
+  status: null as number | null,
+  materialCategory: null as number | null,
+  cooperationLevel: null as number | null
 })
 
 const pagination = reactive({
@@ -170,6 +210,8 @@ const form = reactive({
   contactEmail: '',
   address: '',
   status: 0,
+  materialCategory: null as number | null,
+  cooperationLevel: null as number | null,
   remark: ''
 })
 
@@ -197,9 +239,23 @@ const statusMap: Record<number, string> = {
   3: '已淘汰'
 }
 
+const materialCategoryMap: Record<number, string> = {
+  1: '原材料',
+  2: '辅料',
+  3: '设备'
+}
+
+const cooperationLevelMap: Record<number, string> = {
+  1: '战略',
+  2: '合格',
+  3: '潜在'
+}
+
 const getSupplierTypeName = (type: number) => supplierTypeMap[type] || '未知'
 const getGradeName = (grade: number) => gradeMap[grade] || '未知'
 const getStatusName = (status: number) => statusMap[status] || '未知'
+const getMaterialCategoryName = (category: number) => materialCategoryMap[category] || '未知'
+const getCooperationLevelName = (level: number) => cooperationLevelMap[level] || '未知'
 
 const getStatusType = (status: number) => {
   switch (status) {
@@ -237,6 +293,8 @@ const handleReset = () => {
   searchForm.supplierCode = ''
   searchForm.supplierName = ''
   searchForm.status = null
+  searchForm.materialCategory = null
+  searchForm.cooperationLevel = null
   handleSearch()
 }
 
@@ -307,6 +365,8 @@ const handleDialogClose = () => {
     contactEmail: '',
     address: '',
     status: 0,
+    materialCategory: null,
+    cooperationLevel: null,
     remark: ''
   })
 }
