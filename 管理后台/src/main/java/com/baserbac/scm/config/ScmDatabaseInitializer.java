@@ -33,6 +33,8 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         log.info("开始初始化SCM数据库表结构...");
         
         try {
+            jdbcTemplate.execute("SET NAMES utf8mb4");
+            jdbcTemplate.execute("SET CHARACTER SET utf8mb4");
             jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
             clearOldTestData();
             insertTestData();
