@@ -20,6 +20,9 @@ public class QualificationQueryDTO extends PageQueryDTO implements Serializable 
     @Schema(description = "供应商ID")
     private Long supplierId;
 
+    @Schema(description = "供应商名称")
+    private String supplierName;
+
     @Schema(description = "资质类型")
     private String qualificationType;
 

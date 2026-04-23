@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,17 +42,39 @@ public class SupplierQualificationService {
     private static final int ALERT_DAYS_BEFORE = 30;
 
     public PageResult<SupplierQualificationVO> pageQualifications(QualificationQueryDTO queryDTO) {
+        log.debug("pageQualifications called with: supplierName={}, supplierId={}, pageNum={}, pageSize={}",
+                queryDTO.getSupplierName(), queryDTO.getSupplierId(), queryDTO.getPageNum(), queryDTO.getPageSize());
+        
         Page<SupplierQualification> page = new Page<>(queryDTO.getPageNum(), queryDTO.getPageSize());
+        
+        List<Long> supplierIds = null;
+        if (queryDTO.getSupplierName() != null && !queryDTO.getSupplierName().trim().isEmpty()) {
+            LambdaQueryWrapper<Supplier> supplierWrapper = new LambdaQueryWrapper<>();
+            supplierWrapper.like(Supplier::getSupplierName, queryDTO.getSupplierName().trim());
+            List<Supplier> suppliers = supplierMapper.selectList(supplierWrapper);
+            if (suppliers != null && !suppliers.isEmpty()) {
+                supplierIds = suppliers.stream().map(Supplier::getId).collect(Collectors.toList());
+                log.debug("Found {} suppliers by name: {}", supplierIds.size(), supplierIds);
+            } else {
+                log.debug("No suppliers found by name: {}", queryDTO.getSupplierName());
+                return PageResult.of(0L, new ArrayList<>(), (long) queryDTO.getPageNum(), (long) queryDTO.getPageSize());
+            }
+        }
         
         LambdaQueryWrapper<SupplierQualification> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(queryDTO.getSupplierId() != null, SupplierQualification::getSupplierId, queryDTO.getSupplierId())
+               .in(supplierIds != null && !supplierIds.isEmpty(), SupplierQualification::getSupplierId, supplierIds)
                .eq(queryDTO.getQualificationType() != null, SupplierQualification::getQualificationType, queryDTO.getQualificationType())
                .like(queryDTO.getQualificationName() != null, SupplierQualification::getQualificationName, queryDTO.getQualificationName())
                .eq(queryDTO.getAuditStatus() != null, SupplierQualification::getAuditStatus, queryDTO.getAuditStatus())
                .eq(queryDTO.getAlertStatus() != null, SupplierQualification::getAlertStatus, queryDTO.getAlertStatus())
                .orderByDesc(SupplierQualification::getCreateTime);
         
+        log.debug("Query wrapper: {}", wrapper.getSqlSegment());
+        
         Page<SupplierQualification> result = qualificationMapper.selectPage(page, wrapper);
+        
+        log.debug("Query result: total={}, records={}", result.getTotal(), result.getRecords().size());
         
         List<SupplierQualificationVO> voList = result.getRecords().stream()
             .map(this::convertToVO)
