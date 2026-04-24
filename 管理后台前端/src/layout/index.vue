@@ -41,12 +41,18 @@
         <el-sub-menu index="/scm">
           <template #title>
             <el-icon><OfficeBuilding /></el-icon>
-            <span>SCM管理</span>
+            <span>供应商全生命周期管理</span>
           </template>
-          <el-menu-item index="/scm/supplier">供应商管理</el-menu-item>
-          <el-menu-item index="/scm/qualification">资质审核</el-menu-item>
-          <el-menu-item index="/scm/classification">分级分类</el-menu-item>
-          <el-menu-item index="/scm/alert">预警管理</el-menu-item>
+          <el-sub-menu index="/scm/access">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>准入与分级管理</span>
+            </template>
+            <el-menu-item index="/scm/supplier">供应商管理</el-menu-item>
+            <el-menu-item index="/scm/qualification">资质审核</el-menu-item>
+            <el-menu-item index="/scm/classification">分级分类</el-menu-item>
+            <el-menu-item index="/scm/alert">预警管理</el-menu-item>
+          </el-sub-menu>
         </el-sub-menu>
       </el-menu>
     </el-aside>
