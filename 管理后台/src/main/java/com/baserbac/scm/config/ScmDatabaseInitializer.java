@@ -385,26 +385,137 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             String countSql = "SELECT COUNT(*) FROM scm_purchase_requirement WHERE is_deleted = 0";
             Integer count = jdbcTemplate.queryForObject(countSql, Integer.class);
             
-            if (count != null && count >= 30) {
-                log.info("采购需求测试数据已存在: {}条", count);
-                return;
+            if (count == null || count < 30) {
+                List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
+                    "SELECT id, supplier_code, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
+                );
+                
+                if (suppliers.isEmpty()) {
+                    log.warn("没有供应商数据，无法生成询价测试数据");
+                } else {
+                    insertRequirementTestData();
+                    insertInquiryTestDataWithSuppliers(suppliers);
+                    insertTenderTestData(suppliers);
+                }
             }
             
-            List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
-                "SELECT id, supplier_code, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
-            );
-            
-            if (suppliers.isEmpty()) {
-                log.warn("没有供应商数据，无法生成询价测试数据");
-                return;
-            }
-            
-            insertRequirementTestData();
-            insertInquiryTestDataWithSuppliers(suppliers);
-            insertTenderTestData(suppliers);
+            insertComparisonTestData();
             
         } catch (Exception e) {
             log.error("插入询价测试数据失败", e);
+        }
+    }
+    
+    private void insertComparisonTestData() {
+        try {
+            String countSql = "SELECT COUNT(*) FROM scm_price_comparison WHERE is_deleted = 0";
+            Integer count = jdbcTemplate.queryForObject(countSql, Integer.class);
+            
+            if (count != null && count >= 30) {
+                log.info("比价测试数据已存在: {}条", count);
+                return;
+            }
+            
+            List<Map<String, Object>> inquiries = jdbcTemplate.queryForList(
+                "SELECT i.id, i.inquiry_no, i.inquiry_name, i.req_ids, r.req_name, r.material_name, r.material_spec, r.material_unit, r.quantity " +
+                "FROM scm_inquiry i " +
+                "LEFT JOIN scm_purchase_requirement r ON FIND_IN_SET(r.id, i.req_ids) > 0 " +
+                "WHERE i.is_deleted = 0 " +
+                "ORDER BY i.id"
+            );
+            
+            List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
+                "SELECT id, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (inquiries.isEmpty() || suppliers.size() < 2) {
+                log.warn("询价单或供应商数据不足，无法生成比价测试数据");
+                return;
+            }
+            
+            String insertComparisonSql = """
+                INSERT INTO scm_price_comparison 
+                (inquiry_id, comparison_no, comparison_name, req_id, req_name, material_name, 
+                 material_spec, material_unit, req_quantity, status, 
+                 recommend_supplier_id, recommend_supplier_name, recommend_price, recommend_reason, 
+                 comparison_result, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            LocalDate today = LocalDate.now();
+            String[] comparisonNames = {
+                "不锈钢钢板采购比价", "铝合金型材采购比价", "电子元器件采购比价",
+                "电机马达采购比价", "传感器采购比价", "控制器采购比价",
+                "电缆线材采购比价", "密封件采购比价", "轴承采购比价",
+                "润滑油采购比价", "化工原料采购比价", "包装材料采购比价",
+                "紧固件采购比价", "液压元件采购比价", "气动元件采购比价",
+                "电气开关采购比价", "变压器采购比价", "电容器采购比价",
+                "电阻器采购比价", "连接器采购比价", "散热器采购比价",
+                "风扇采购比价", "水泵采购比价", "阀门采购比价",
+                "过滤器采购比价", "压力表采购比价", "流量计采购比价",
+                "温度传感器采购比价", "压力传感器采购比价", "生产线设备采购比价"
+            };
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < 30; i++) {
+                int inquiryIndex = i % inquiries.size();
+                Map<String, Object> inquiry = inquiries.get(inquiryIndex);
+                Long inquiryId = ((Number) inquiry.get("id")).longValue();
+                String inquiryNo = (String) inquiry.get("inquiry_no");
+                String materialName = (String) inquiry.get("material_name");
+                
+                Long reqId = null;
+                String reqName = null;
+                String materialSpec = (String) inquiry.get("material_spec");
+                String materialUnit = (String) inquiry.get("material_unit");
+                java.math.BigDecimal reqQuantity = inquiry.get("quantity") != null ? 
+                    new java.math.BigDecimal(inquiry.get("quantity").toString()) : 
+                    new java.math.BigDecimal(100);
+                
+                if (inquiry.get("req_id") != null) {
+                    reqId = ((Number) inquiry.get("req_id")).longValue();
+                }
+                if (inquiry.get("req_name") != null) {
+                    reqName = (String) inquiry.get("req_name");
+                }
+                
+                String comparisonNo = "CMP" + today.format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd")) + String.format("%05d", i + 1);
+                String comparisonName = comparisonNames[i % comparisonNames.length];
+                if (materialName != null && !materialName.isEmpty()) {
+                    comparisonName = materialName + "采购比价单";
+                }
+                
+                int recommendedSupplierIndex = i % suppliers.size();
+                Map<String, Object> recommendedSupplier = suppliers.get(recommendedSupplierIndex);
+                Long recommendedSupplierId = ((Number) recommendedSupplier.get("id")).longValue();
+                String recommendedSupplierName = (String) recommendedSupplier.get("supplier_name");
+                
+                java.math.BigDecimal recommendPrice = new java.math.BigDecimal(10000 + i * 500);
+                int status = i % 4;
+                
+                String recommendReason = "综合评分最高，价格最具竞争力";
+                String comparisonResult = "比价完成，推荐供应商：" + recommendedSupplierName;
+                String remark = "测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertComparisonSql,
+                        inquiryId, comparisonNo, comparisonName, reqId, reqName, materialName,
+                        materialSpec, materialUnit, reqQuantity, status,
+                        recommendedSupplierId, recommendedSupplierName, recommendPrice, recommendReason,
+                        comparisonResult, remark
+                    );
+                    inserted++;
+                    log.debug("插入比价测试数据: {}", comparisonName);
+                } catch (Exception e) {
+                    log.warn("插入比价测试数据失败: {} - {}", comparisonName, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条比价测试数据", inserted);
+            
+        } catch (Exception e) {
+            log.error("插入比价测试数据失败", e);
         }
     }
 

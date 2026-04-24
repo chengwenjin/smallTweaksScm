@@ -7,12 +7,15 @@ import com.baserbac.scm.dto.InquiryCreateDTO;
 import com.baserbac.scm.dto.InquiryQueryDTO;
 import com.baserbac.scm.dto.QuoteSubmitDTO;
 import com.baserbac.scm.service.InquiryService;
+import com.baserbac.scm.vo.InquirySupplierVO;
 import com.baserbac.scm.vo.InquiryVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "询价单管理")
 @RestController
@@ -34,6 +37,13 @@ public class InquiryController {
         return R.success(inquiryService.getInquiryById(id));
     }
 
+    @Operation(summary = "获取询价单的供应商报价列表")
+    @GetMapping("/{id}/suppliers")
+    public R<List<InquirySupplierVO>> getInquirySuppliers(@PathVariable Long id) {
+        InquiryVO inquiry = inquiryService.getInquiryById(id);
+        return R.success(inquiry.getSuppliers());
+    }
+
     @OperationLog(module = "询价单管理", value = "创建询价单")
     @Operation(summary = "创建询价单（一键询价）")
     @PostMapping
@@ -44,7 +54,7 @@ public class InquiryController {
 
     @OperationLog(module = "询价单管理", value = "发布询价单")
     @Operation(summary = "发布询价单")
-    @PostMapping("/{id}/publish")
+    @PutMapping("/{id}/publish")
     public R<Void> publishInquiry(@PathVariable Long id) {
         inquiryService.publishInquiry(id);
         return R.success();
@@ -60,7 +70,7 @@ public class InquiryController {
 
     @OperationLog(module = "询价单管理", value = "取消询价单")
     @Operation(summary = "取消询价单")
-    @PostMapping("/{id}/cancel")
+    @PutMapping("/{id}/cancel")
     public R<Void> cancelInquiry(@PathVariable Long id) {
         inquiryService.cancelInquiry(id);
         return R.success();
