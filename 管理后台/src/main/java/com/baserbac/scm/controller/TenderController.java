@@ -8,12 +8,15 @@ import com.baserbac.scm.dto.TenderBidDTO;
 import com.baserbac.scm.dto.TenderCreateDTO;
 import com.baserbac.scm.dto.TenderQueryDTO;
 import com.baserbac.scm.service.TenderService;
+import com.baserbac.scm.vo.TenderBidVO;
 import com.baserbac.scm.vo.TenderVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @Tag(name = "招投标管理")
 @RestController
@@ -35,6 +38,13 @@ public class TenderController {
         return R.success(tenderService.getTenderById(id));
     }
 
+    @Operation(summary = "获取招标单的投标列表")
+    @GetMapping("/{id}/bids")
+    public R<List<TenderBidVO>> getTenderBids(@PathVariable Long id) {
+        TenderVO tender = tenderService.getTenderById(id);
+        return R.success(tender.getBids());
+    }
+
     @OperationLog(module = "招投标管理", value = "创建招标单")
     @Operation(summary = "创建招标单")
     @PostMapping
@@ -53,7 +63,7 @@ public class TenderController {
 
     @OperationLog(module = "招投标管理", value = "发布招标单")
     @Operation(summary = "发布招标单")
-    @PostMapping("/{id}/publish")
+    @PutMapping("/{id}/publish")
     public R<Void> publishTender(@PathVariable Long id) {
         tenderService.publishTender(id);
         return R.success();
@@ -69,7 +79,7 @@ public class TenderController {
 
     @OperationLog(module = "招投标管理", value = "开标")
     @Operation(summary = "开标")
-    @PostMapping("/{id}/open")
+    @PutMapping("/{id}/open")
     public R<Void> openTender(@PathVariable Long id) {
         tenderService.openTender(id);
         return R.success();
@@ -77,15 +87,16 @@ public class TenderController {
 
     @OperationLog(module = "招投标管理", value = "定标")
     @Operation(summary = "定标（确定中标供应商）")
-    @PostMapping("/award")
-    public R<Void> awardTender(@Valid @RequestBody TenderAwardDTO awardDTO) {
+    @PostMapping("/{id}/award")
+    public R<Void> awardTender(@PathVariable Long id, @Valid @RequestBody TenderAwardDTO awardDTO) {
+        awardDTO.setTenderId(id);
         tenderService.awardTender(awardDTO);
         return R.success();
     }
 
     @OperationLog(module = "招投标管理", value = "取消招标")
     @Operation(summary = "取消招标")
-    @PostMapping("/{id}/cancel")
+    @PutMapping("/{id}/cancel")
     public R<Void> cancelTender(@PathVariable Long id) {
         tenderService.cancelTender(id);
         return R.success();

@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Tag(name = "比价管理")
 @RestController
 @RequestMapping("/api/scm/comparisons")
@@ -39,8 +41,32 @@ public class PriceComparisonController {
     @OperationLog(module = "比价管理", value = "创建比价单")
     @Operation(summary = "创建比价单（智能比价）")
     @PostMapping
-    public R<PriceComparisonVO> createComparison(@RequestParam Long inquiryId) {
-        return R.success(comparisonService.createComparison(inquiryId));
+    public R<PriceComparisonVO> createComparison(@RequestBody(required = false) Map<String, Object> params,
+            @RequestParam(required = false) Long inquiryId) {
+        Long targetInquiryId = inquiryId;
+        if (targetInquiryId == null && params != null && params.containsKey("inquiryId")) {
+            Object idObj = params.get("inquiryId");
+            if (idObj instanceof Number) {
+                targetInquiryId = ((Number) idObj).longValue();
+            } else if (idObj instanceof String) {
+                targetInquiryId = Long.parseLong((String) idObj);
+            }
+        }
+        if (targetInquiryId == null) {
+            return R.error(400, "缺少必要参数inquiryId");
+        }
+        return R.success(comparisonService.createComparison(targetInquiryId));
+    }
+
+    @OperationLog(module = "比价管理", value = "开始比价")
+    @Operation(summary = "开始智能比价")
+    @PostMapping("/{id}/start")
+    public R<PriceComparisonVO> startComparison(@PathVariable Long id) {
+        PriceComparisonVO vo = comparisonService.getComparisonById(id);
+        if (vo == null) {
+            return R.error(404, "比价单不存在");
+        }
+        return R.success(vo);
     }
 
     @OperationLog(module = "比价管理", value = "确认推荐方案")
