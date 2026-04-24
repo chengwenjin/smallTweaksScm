@@ -15,9 +15,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -34,7 +36,9 @@ public class ScmMenuInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        log.info("开始初始化SCM菜单...");
+        log.info("========================================");
+        log.info("  开始初始化SCM菜单...");
+        log.info("========================================");
         
         fixScmTableComments();
         
@@ -42,26 +46,37 @@ public class ScmMenuInitializer implements CommandLineRunner {
         deleteOldScmMenus();
         
         try {
+            log.info("\n========== 创建SCM菜单层级 ==========");
+            
             Long lifecycleMenuId = createLifecycleMenu();
+            log.info("  [一级] 供应商全生命周期管理 (ID={})", lifecycleMenuId);
             
             Long accessMenuId = createAccessMenu(lifecycleMenuId);
+            log.info("    [二级] 准入与分级管理 (ID={}, parentId={})", accessMenuId, lifecycleMenuId);
             
             Long supplierMenuId = createSupplierMenu(accessMenuId);
+            log.info("      [三级] 供应商管理 (ID={}, parentId={})", supplierMenuId, accessMenuId);
             createSupplierButtons(supplierMenuId);
             
             Long qualificationMenuId = createQualificationMenu(accessMenuId);
+            log.info("      [三级] 资质审核 (ID={}, parentId={})", qualificationMenuId, accessMenuId);
             createQualificationButtons(qualificationMenuId);
             
             Long alertMenuId = createAlertMenu(accessMenuId);
+            log.info("      [三级] 预警管理 (ID={}, parentId={})", alertMenuId, accessMenuId);
             createAlertButtons(alertMenuId);
             
             Long classificationMenuId = createClassificationMenu(accessMenuId);
+            log.info("      [三级] 分级分类 (ID={}, parentId={})", classificationMenuId, accessMenuId);
             createClassificationButtons(classificationMenuId);
             
             Long blacklistMenuId = createBlacklistMenu(accessMenuId);
+            log.info("      [三级] 黑名单管理 (ID={}, parentId={})", blacklistMenuId, accessMenuId);
             createBlacklistButtons(blacklistMenuId);
             
-            log.info("SCM菜单初始化完成");
+            log.info("\n========================================");
+            log.info("  SCM菜单初始化完成！");
+            log.info("========================================");
             
         } catch (Exception e) {
             log.error("SCM菜单初始化失败", e);
@@ -90,10 +105,20 @@ public class ScmMenuInitializer implements CommandLineRunner {
 
     private void deleteOldScmMenus() {
         try {
+            List<String> scmMenuNames = Arrays.asList(
+                "供应商全生命周期管理",
+                "准入与分级管理",
+                "供应商管理",
+                "资质审核",
+                "预警管理",
+                "分级分类",
+                "黑名单管理"
+            );
+            
             LambdaQueryWrapper<SysMenu> scmWrapper = new LambdaQueryWrapper<>();
             scmWrapper.like(SysMenu::getPath, "/scm")
                     .or()
-                    .eq(SysMenu::getMenuName, "SCM管理")
+                    .in(SysMenu::getMenuName, scmMenuNames)
                     .or()
                     .like(SysMenu::getPermissionKey, "scm:");
             List<SysMenu> oldMenus = menuMapper.selectList(scmWrapper);
@@ -105,9 +130,12 @@ public class ScmMenuInitializer implements CommandLineRunner {
             
             List<Long> menuIds = oldMenus.stream()
                     .map(SysMenu::getId)
-                    .toList();
+                    .collect(Collectors.toList());
             
             log.info("准备删除旧的SCM菜单: {} 个", menuIds.size());
+            for (SysMenu menu : oldMenus) {
+                log.info("  - 删除菜单: {} (ID={}, path={})", menu.getMenuName(), menu.getId(), menu.getPath());
+            }
             
             LambdaQueryWrapper<SysRoleMenu> roleMenuWrapper = new LambdaQueryWrapper<>();
             roleMenuWrapper.in(SysRoleMenu::getMenuId, menuIds);
