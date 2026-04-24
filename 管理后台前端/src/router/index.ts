@@ -72,6 +72,12 @@ const routes: RouteRecordRaw[] = [
         name: 'ClassificationManagement',
         component: () => import('@/views/scm/Classification.vue'),
         meta: { title: '分级分类' }
+      },
+      {
+        path: 'scm/blacklist',
+        name: 'BlacklistManagement',
+        component: () => import('@/views/scm/Blacklist.vue'),
+        meta: { title: '黑名单管理' }
       }
     ]
   }
