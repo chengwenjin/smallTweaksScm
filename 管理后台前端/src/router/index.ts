@@ -78,6 +78,30 @@ const routes: RouteRecordRaw[] = [
         name: 'BlacklistManagement',
         component: () => import('@/views/scm/Blacklist.vue'),
         meta: { title: '黑名单管理' }
+      },
+      {
+        path: 'scm/requirement',
+        name: 'RequirementManagement',
+        component: () => import('@/views/scm/Requirement.vue'),
+        meta: { title: '采购需求单' }
+      },
+      {
+        path: 'scm/inquiry',
+        name: 'InquiryManagement',
+        component: () => import('@/views/scm/Inquiry.vue'),
+        meta: { title: '一键询价' }
+      },
+      {
+        path: 'scm/comparison',
+        name: 'ComparisonManagement',
+        component: () => import('@/views/scm/Comparison.vue'),
+        meta: { title: '智能比价' }
+      },
+      {
+        path: 'scm/tender',
+        name: 'TenderManagement',
+        component: () => import('@/views/scm/Tender.vue'),
+        meta: { title: '招投标管理' }
       }
     ]
   }
