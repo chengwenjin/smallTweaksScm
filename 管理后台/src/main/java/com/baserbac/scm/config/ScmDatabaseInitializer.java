@@ -30,40 +30,21 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        log.info("开始初始化SCM数据库表结构...");
+        log.info("检查SCM数据库表结构...");
         
         try {
             jdbcTemplate.execute("SET NAMES utf8mb4");
             jdbcTemplate.execute("SET CHARACTER SET utf8mb4");
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
-            clearOldTestData();
-            insertTestData();
-            log.info("SCM数据库表结构和测试数据初始化完成");
-        } finally {
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
-        }
-    }
-
-    private void clearOldTestData() {
-        try {
+            
             checkAndAddColumn("scm_qualification_alert", "create_by", "VARCHAR(50) COMMENT '创建人'");
             checkAndAddColumn("scm_supplier", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             checkAndAddColumn("scm_supplier_qualification", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             checkAndAddColumn("scm_qualification_alert", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             checkAndAddColumn("scm_supplier_classification_log", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 0");
-            
-            jdbcTemplate.execute("TRUNCATE TABLE scm_qualification_alert");
-            jdbcTemplate.execute("TRUNCATE TABLE scm_supplier_qualification");
-            jdbcTemplate.execute("TRUNCATE TABLE scm_supplier_classification_log");
-            jdbcTemplate.execute("TRUNCATE TABLE scm_supplier");
-            
-            jdbcTemplate.execute("SET FOREIGN_KEY_CHECKS = 1");
-            
-            log.info("已清空旧的测试数据");
+            log.info("SCM数据库表结构检查完成");
         } catch (Exception e) {
-            log.warn("清空旧数据失败（可能是表不存在）: {}", e.getMessage());
+            log.warn("检查表结构失败: {}", e.getMessage());
         }
     }
 
