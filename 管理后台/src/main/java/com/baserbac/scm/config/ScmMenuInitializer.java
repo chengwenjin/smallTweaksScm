@@ -405,6 +405,9 @@ public class ScmMenuInitializer implements CommandLineRunner {
         sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `create_time` DATETIME COMMENT '创建时间'");
         sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `update_by` VARCHAR(50) COMMENT '更新人'");
         sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `update_time` DATETIME COMMENT '更新时间'");
+        sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `ext1` VARCHAR(255) COMMENT '预留扩展字段1'");
+        sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `ext2` VARCHAR(255) COMMENT '预留扩展字段2'");
+        sqls.add("ALTER TABLE scm_supplier MODIFY COLUMN `ext3` VARCHAR(255) COMMENT '预留扩展字段3'");
 
         sqls.add("ALTER TABLE scm_supplier_qualification MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键'");
         sqls.add("ALTER TABLE scm_supplier_qualification MODIFY COLUMN `supplier_id` BIGINT COMMENT '供应商ID'");
