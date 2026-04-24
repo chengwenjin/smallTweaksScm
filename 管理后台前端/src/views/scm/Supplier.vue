@@ -77,9 +77,18 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
+            <el-button 
+              link 
+              type="warning" 
+              size="small" 
+              @click="handleAddToBlacklist(row)"
+              v-if="row.status !== 3"
+            >
+              列入黑名单
+            </el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -167,14 +176,72 @@
         <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog
+      v-model="blacklistDialogVisible"
+      title="列入黑名单"
+      width="500px"
+      @close="handleBlacklistDialogClose"
+    >
+      <el-descriptions :column="1" border style="margin-bottom: 20px">
+        <el-descriptions-item label="供应商编码">{{ blacklistSupplier.supplierCode }}</el-descriptions-item>
+        <el-descriptions-item label="供应商名称">{{ blacklistSupplier.supplierName }}</el-descriptions-item>
+      </el-descriptions>
+      <el-form :model="blacklistForm" :rules="blacklistRules" ref="blacklistFormRef" label-width="100px">
+        <el-form-item label="黑名单类型" prop="blacklistType">
+          <el-select v-model="blacklistForm.blacklistType" placeholder="请选择" style="width: 100%">
+            <el-option label="严重违约" :value="1" />
+            <el-option label="质量问题" :value="2" />
+            <el-option label="欺诈行为" :value="3" />
+            <el-option label="其他" :value="4" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="列入原因" prop="blacklistReason">
+          <el-input 
+            v-model="blacklistForm.blacklistReason" 
+            type="textarea" 
+            :rows="3" 
+            placeholder="请输入列入黑名单的原因"
+          />
+        </el-form-item>
+        <el-form-item label="是否永久" prop="isPermanent">
+          <el-radio-group v-model="blacklistForm.isPermanent">
+            <el-radio :value="1">永久</el-radio>
+            <el-radio :value="0">临时</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="到期日期" prop="expireDate" v-if="blacklistForm.isPermanent === 0">
+          <el-date-picker
+            v-model="blacklistForm.expireDate"
+            type="date"
+            placeholder="请选择到期日期"
+            value-format="YYYY-MM-DD"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input 
+            v-model="blacklistForm.remark" 
+            type="textarea" 
+            :rows="2" 
+            placeholder="请输入备注（可选）"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="blacklistDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleSubmitBlacklist" :loading="submitLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import type { FormInstance, FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
 import { getSupplierList, createSupplier, updateSupplier, deleteSupplier } from '@/api/supplier'
+import { addToBlacklist } from '@/api/blacklist'
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -182,6 +249,10 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
 const formRef = ref<FormInstance>()
+
+const blacklistDialogVisible = ref(false)
+const blacklistFormRef = ref<FormInstance>()
+const blacklistSupplier = ref<any>({})
 
 const searchForm = reactive({
   supplierCode: '',
@@ -215,9 +286,23 @@ const form = reactive({
   remark: ''
 })
 
+const blacklistForm = reactive({
+  supplierId: null as number | null,
+  blacklistType: 1,
+  blacklistReason: '',
+  isPermanent: 0,
+  expireDate: '',
+  remark: ''
+})
+
 const rules: FormRules = {
   supplierCode: [{ required: true, message: '请输入供应商编码', trigger: 'blur' }],
   supplierName: [{ required: true, message: '请输入供应商名称', trigger: 'blur' }]
+}
+
+const blacklistRules: FormRules = {
+  blacklistType: [{ required: true, message: '请选择黑名单类型', trigger: 'change' }],
+  blacklistReason: [{ required: true, message: '请输入列入原因', trigger: 'blur' }]
 }
 
 const supplierTypeMap: Record<number, string> = {
@@ -368,6 +453,52 @@ const handleDialogClose = () => {
     materialCategory: null,
     cooperationLevel: null,
     remark: ''
+  })
+}
+
+const handleAddToBlacklist = (row: any) => {
+  blacklistSupplier.value = { ...row }
+  blacklistForm.supplierId = row.id
+  blacklistForm.blacklistType = 1
+  blacklistForm.blacklistReason = ''
+  blacklistForm.isPermanent = 0
+  blacklistForm.expireDate = ''
+  blacklistForm.remark = ''
+  blacklistDialogVisible.value = true
+}
+
+const handleBlacklistDialogClose = () => {
+  blacklistFormRef.value?.resetFields()
+  blacklistSupplier.value = {}
+}
+
+const handleSubmitBlacklist = async () => {
+  if (!blacklistFormRef.value || !blacklistForm.supplierId) return
+  
+  await blacklistFormRef.value.validate(async (valid) => {
+    if (valid) {
+      submitLoading.value = true
+      try {
+        const data: any = {
+          supplierId: blacklistForm.supplierId,
+          blacklistType: blacklistForm.blacklistType,
+          blacklistReason: blacklistForm.blacklistReason,
+          isPermanent: blacklistForm.isPermanent,
+          remark: blacklistForm.remark
+        }
+        if (blacklistForm.isPermanent === 0 && blacklistForm.expireDate) {
+          data.expireDate = blacklistForm.expireDate
+        }
+        await addToBlacklist(data)
+        ElMessage.success('列入黑名单成功')
+        blacklistDialogVisible.value = false
+        fetchData()
+      } catch (error: any) {
+        ElMessage.error(error.msg || '操作失败')
+      } finally {
+        submitLoading.value = false
+      }
+    }
   })
 }
 

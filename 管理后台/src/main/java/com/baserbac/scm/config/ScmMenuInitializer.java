@@ -58,6 +58,9 @@ public class ScmMenuInitializer implements CommandLineRunner {
             Long classificationMenuId = createClassificationMenu(accessMenuId);
             createClassificationButtons(classificationMenuId);
             
+            Long blacklistMenuId = createBlacklistMenu(accessMenuId);
+            createBlacklistButtons(blacklistMenuId);
+            
             log.info("SCM菜单初始化完成");
             
         } catch (Exception e) {
@@ -456,6 +459,61 @@ public class ScmMenuInitializer implements CommandLineRunner {
         sqls.add("ALTER TABLE scm_supplier_classification_log MODIFY COLUMN `create_by` VARCHAR(50) COMMENT '创建人'");
         sqls.add("ALTER TABLE scm_supplier_classification_log MODIFY COLUMN `create_time` DATETIME COMMENT '创建时间'");
 
+        sqls.add("ALTER TABLE scm_supplier_blacklist COMMENT = '供应商黑名单表'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `supplier_id` BIGINT COMMENT '供应商ID'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `supplier_code` VARCHAR(50) COMMENT '供应商编码'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `supplier_name` VARCHAR(200) COMMENT '供应商名称'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `blacklist_type` TINYINT COMMENT '黑名单类型：1严重违约 2质量问题 3欺诈行为 4其他'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `blacklist_reason` VARCHAR(1000) COMMENT '列入原因'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `blacklist_date` DATE COMMENT '列入日期'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `is_permanent` TINYINT COMMENT '是否永久：0否 1是'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `expire_date` DATE COMMENT '到期日期'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `status` TINYINT COMMENT '状态：1在黑名单 2已移除'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `remove_reason` VARCHAR(1000) COMMENT '移除原因'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `remove_date` DATE COMMENT '移除日期'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `is_deleted` TINYINT DEFAULT 0 COMMENT '软删除'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `remark` VARCHAR(1000) COMMENT '备注'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `create_by` VARCHAR(50) COMMENT '创建人'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `create_time` DATETIME COMMENT '创建时间'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `update_by` VARCHAR(50) COMMENT '更新人'");
+        sqls.add("ALTER TABLE scm_supplier_blacklist MODIFY COLUMN `update_time` DATETIME COMMENT '更新时间'");
+
         return sqls;
+    }
+
+    private Long createBlacklistMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("黑名单管理");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:blacklist:list");
+        menu.setPath("blacklist");
+        menu.setComponent("scm/blacklist/index");
+        menu.setIcon("WarningFilled");
+        menu.setSortOrder(5);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 黑名单管理, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createBlacklistButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "列入黑名单", "scm:blacklist:add", 1));
+        buttons.add(createButton(parentId, "移除黑名单", "scm:blacklist:remove", 2));
+        buttons.add(createButton(parentId, "查看详情", "scm:blacklist:view", 3));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
     }
 }

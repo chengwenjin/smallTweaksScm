@@ -42,9 +42,169 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             checkAndAddColumn("scm_qualification_alert", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             checkAndAddColumn("scm_supplier_classification_log", "is_deleted", "TINYINT DEFAULT 0 COMMENT '软删除'");
             
+            checkAndCreateBlacklistTable();
+            
             log.info("SCM数据库表结构检查完成");
         } catch (Exception e) {
             log.warn("检查表结构失败: {}", e.getMessage());
+        }
+    }
+
+    private void checkAndCreateBlacklistTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_supplier_blacklist'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_supplier_blacklist (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_code VARCHAR(50) COMMENT '供应商编码',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        blacklist_type TINYINT COMMENT '黑名单类型：1严重违约 2质量问题 3欺诈行为 4其他',
+                        blacklist_reason VARCHAR(1000) COMMENT '列入原因',
+                        blacklist_date DATE COMMENT '列入日期',
+                        is_permanent TINYINT COMMENT '是否永久：0否 1是',
+                        expire_date DATE COMMENT '到期日期',
+                        status TINYINT DEFAULT 1 COMMENT '状态：1在黑名单 2已移除',
+                        remove_reason VARCHAR(1000) COMMENT '移除原因',
+                        remove_date DATE COMMENT '移除日期',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_supplier_id (supplier_id),
+                        KEY idx_supplier_code (supplier_code),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应商黑名单表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建黑名单表成功: scm_supplier_blacklist");
+            } else {
+                log.debug("黑名单表已存在: scm_supplier_blacklist");
+            }
+            
+            insertBlacklistTestData();
+            
+        } catch (Exception e) {
+            log.error("检查或创建黑名单表失败", e);
+        }
+    }
+
+    private void insertBlacklistTestData() {
+        try {
+            String countSql = "SELECT COUNT(*) FROM scm_supplier_blacklist WHERE is_deleted = 0";
+            Integer count = jdbcTemplate.queryForObject(countSql, Integer.class);
+            
+            if (count != null && count >= 30) {
+                log.info("黑名单测试数据已存在: {}条", count);
+                return;
+            }
+            
+            List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
+                "SELECT id, supplier_code, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (suppliers.isEmpty()) {
+                log.warn("没有供应商数据，无法生成黑名单测试数据");
+                return;
+            }
+            
+            String[] reasons = {
+                "严重违约行为",
+                "提供虚假资质证书",
+                "产品质量抽检不合格",
+                "拖欠货款超过90天",
+                "违反商业道德行为",
+                "合同欺诈行为",
+                "交付产品严重不合格",
+                "拒绝履行合同义务",
+                "供应商倒闭清算",
+                "多次违反服务协议",
+                "环保违规被处罚",
+                "安全生产事故",
+                "商业贿赂行为",
+                "知识产权侵权",
+                "数据安全违规"
+            };
+            
+            String[] supplierNames = {
+                "华东化工原料", "华南电子科技", "华北机械制造", "华中纺织服装",
+                "西南食品加工", "西北建材供应", "东北汽车配件", "东南医疗器械",
+                "上海精密仪器", "广州物流服务", "北京信息技术", "深圳新能源",
+                "杭州智能制造", "南京环保科技", "武汉生物制药", "成都航空航天",
+                "重庆汽车工业", "天津港口贸易", "青岛海洋装备", "厦门跨境电商",
+                "大连船舶制造", "济南工程机械", "郑州轨道交通", "长沙新材料",
+                "西安航天科技", "沈阳机床制造", "苏州芯片设计", "无锡光伏产业",
+                "宁波港口物流", "福州软件服务"
+            };
+            
+            String[] supplierCodes = {
+                "BLACK001", "BLACK002", "BLACK003", "BLACK004", "BLACK005",
+                "BLACK006", "BLACK007", "BLACK008", "BLACK009", "BLACK010",
+                "BLACK011", "BLACK012", "BLACK013", "BLACK014", "BLACK015",
+                "BLACK016", "BLACK017", "BLACK018", "BLACK019", "BLACK020",
+                "BLACK021", "BLACK022", "BLACK023", "BLACK024", "BLACK025",
+                "BLACK026", "BLACK027", "BLACK028", "BLACK029", "BLACK030"
+            };
+            
+            String insertSql = """
+                INSERT INTO scm_supplier_blacklist 
+                (supplier_id, supplier_code, supplier_name, blacklist_type, blacklist_reason, 
+                 blacklist_date, is_permanent, expire_date, status, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            LocalDate today = LocalDate.now();
+            
+            for (int i = 0; i < 30; i++) {
+                int type = (i % 4) + 1;
+                int isPermanent = (i % 3 == 0) ? 1 : 0;
+                LocalDate blacklistDate = today.minusDays(30 + i * 5);
+                LocalDate expireDate = null;
+                if (isPermanent == 0) {
+                    expireDate = today.plusDays(180 + i * 10);
+                }
+                int status = (i % 5 == 0) ? 2 : 1;
+                
+                String name;
+                String code;
+                Long supplierId;
+                
+                if (i < suppliers.size()) {
+                    Map<String, Object> s = suppliers.get(i);
+                    supplierId = ((Number) s.get("id")).longValue();
+                    name = (String) s.get("supplier_name");
+                    code = (String) s.get("supplier_code");
+                } else {
+                    supplierId = 100L + i;
+                    name = supplierNames[i % supplierNames.length] + "有限公司";
+                    code = supplierCodes[i];
+                }
+                
+                String reason = reasons[i % reasons.length];
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        supplierId, code, name, type, reason,
+                        blacklistDate, isPermanent, expireDate, status, "测试数据"
+                    );
+                    inserted++;
+                    log.debug("插入黑名单测试数据: {}", name);
+                } catch (Exception e) {
+                    log.warn("插入黑名单测试数据失败: {} - {}", name, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条黑名单测试数据", inserted);
+            
+        } catch (Exception e) {
+            log.error("插入黑名单测试数据失败", e);
         }
     }
 
