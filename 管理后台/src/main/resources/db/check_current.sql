@@ -1,0 +1,9 @@
+SET NAMES utf8mb4;
+SET CHARACTER SET utf8mb4;
+
+SELECT '========== 当前表注释 ==========' AS info;
+SELECT TABLE_NAME, TABLE_COMMENT 
+FROM information_schema.TABLES 
+WHERE TABLE_SCHEMA = DATABASE() 
+AND TABLE_NAME LIKE 'scm_%' 
+ORDER BY TABLE_NAME;
