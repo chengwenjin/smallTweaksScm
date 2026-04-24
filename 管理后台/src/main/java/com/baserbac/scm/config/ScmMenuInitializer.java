@@ -74,6 +74,25 @@ public class ScmMenuInitializer implements CommandLineRunner {
             log.info("      [三级] 黑名单管理 (ID={}, parentId={})", blacklistMenuId, accessMenuId);
             createBlacklistButtons(blacklistMenuId);
             
+            Long inquiryMenuId = createInquiryTenderMenu(lifecycleMenuId);
+            log.info("    [二级] 询价与招投标 (ID={}, parentId={})", inquiryMenuId, lifecycleMenuId);
+            
+            Long requirementMenuId = createRequirementMenu(inquiryMenuId);
+            log.info("      [三级] 采购需求单 (ID={}, parentId={})", requirementMenuId, inquiryMenuId);
+            createRequirementButtons(requirementMenuId);
+            
+            Long inquiryDetailMenuId = createInquiryDetailMenu(inquiryMenuId);
+            log.info("      [三级] 一键询价 (ID={}, parentId={})", inquiryDetailMenuId, inquiryMenuId);
+            createInquiryDetailButtons(inquiryDetailMenuId);
+            
+            Long comparisonMenuId = createComparisonMenu(inquiryMenuId);
+            log.info("      [三级] 智能比价 (ID={}, parentId={})", comparisonMenuId, inquiryMenuId);
+            createComparisonButtons(comparisonMenuId);
+            
+            Long tenderMenuId = createTenderMenu(inquiryMenuId);
+            log.info("      [三级] 招投标管理 (ID={}, parentId={})", tenderMenuId, inquiryMenuId);
+            createTenderButtons(tenderMenuId);
+            
             log.info("\n========================================");
             log.info("  SCM菜单初始化完成！");
             log.info("========================================");
@@ -112,7 +131,12 @@ public class ScmMenuInitializer implements CommandLineRunner {
                 "资质审核",
                 "预警管理",
                 "分级分类",
-                "黑名单管理"
+                "黑名单管理",
+                "询价与招投标",
+                "采购需求单",
+                "一键询价",
+                "智能比价",
+                "招投标管理"
             );
             
             LambdaQueryWrapper<SysMenu> scmWrapper = new LambdaQueryWrapper<>();
@@ -537,6 +561,170 @@ public class ScmMenuInitializer implements CommandLineRunner {
         buttons.add(createButton(parentId, "列入黑名单", "scm:blacklist:add", 1));
         buttons.add(createButton(parentId, "移除黑名单", "scm:blacklist:remove", 2));
         buttons.add(createButton(parentId, "查看详情", "scm:blacklist:view", 3));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createInquiryTenderMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("询价与招投标");
+        menu.setMenuType(1);
+        menu.setPath("inquiry");
+        menu.setComponent("Layout");
+        menu.setIcon("Document");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 询价与招投标, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createRequirementMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("采购需求单");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:requirement:list");
+        menu.setPath("requirement");
+        menu.setComponent("scm/requirement/index");
+        menu.setIcon("Document");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 采购需求单, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createRequirementButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "新增需求单", "scm:requirement:add", 1));
+        buttons.add(createButton(parentId, "编辑需求单", "scm:requirement:edit", 2));
+        buttons.add(createButton(parentId, "删除需求单", "scm:requirement:delete", 3));
+        buttons.add(createButton(parentId, "发起询价", "scm:requirement:inquiry", 4));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createInquiryDetailMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("一键询价");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:inquiry:list");
+        menu.setPath("inquiry-detail");
+        menu.setComponent("scm/inquiry/index");
+        menu.setIcon("Share");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 一键询价, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createInquiryDetailButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "创建询价单", "scm:inquiry:add", 1));
+        buttons.add(createButton(parentId, "发布询价", "scm:inquiry:publish", 2));
+        buttons.add(createButton(parentId, "查看报价", "scm:inquiry:quote", 3));
+        buttons.add(createButton(parentId, "取消询价", "scm:inquiry:cancel", 4));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createComparisonMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("智能比价");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:comparison:list");
+        menu.setPath("comparison");
+        menu.setComponent("scm/comparison/index");
+        menu.setIcon("DataAnalysis");
+        menu.setSortOrder(3);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 智能比价, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createComparisonButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "生成比价单", "scm:comparison:generate", 1));
+        buttons.add(createButton(parentId, "查看比价", "scm:comparison:view", 2));
+        buttons.add(createButton(parentId, "确认推荐", "scm:comparison:confirm", 3));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createTenderMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("招投标管理");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:tender:list");
+        menu.setPath("tender");
+        menu.setComponent("scm/tender/index");
+        menu.setIcon("Coin");
+        menu.setSortOrder(4);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 招投标管理, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createTenderButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "创建招标", "scm:tender:add", 1));
+        buttons.add(createButton(parentId, "发布招标", "scm:tender:publish", 2));
+        buttons.add(createButton(parentId, "查看投标", "scm:tender:bid", 3));
+        buttons.add(createButton(parentId, "开标", "scm:tender:open", 4));
+        buttons.add(createButton(parentId, "定标", "scm:tender:award", 5));
         
         for (SysMenu btn : buttons) {
             menuMapper.insert(btn);

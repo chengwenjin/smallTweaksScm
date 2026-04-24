@@ -54,6 +54,16 @@
             <el-menu-item index="/scm/alert">预警管理</el-menu-item>
             <el-menu-item index="/scm/blacklist">黑名单管理</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/scm/inquiry-tender">
+            <template #title>
+              <el-icon><ShoppingCart /></el-icon>
+              <span>询价与招投标</span>
+            </template>
+            <el-menu-item index="/scm/requirement">采购需求单</el-menu-item>
+            <el-menu-item index="/scm/inquiry">一键询价</el-menu-item>
+            <el-menu-item index="/scm/comparison">智能比价</el-menu-item>
+            <el-menu-item index="/scm/tender">招投标管理</el-menu-item>
+          </el-sub-menu>
         </el-sub-menu>
       </el-menu>
     </el-aside>
