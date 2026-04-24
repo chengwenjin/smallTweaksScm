@@ -34,29 +34,23 @@ public class ScmMenuInitializer implements CommandLineRunner {
         log.info("开始初始化SCM菜单...");
         
         clearMenuCache();
+        deleteOldScmMenus();
         
         try {
-            LambdaQueryWrapper<SysMenu> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(SysMenu::getPath, "/scm");
-            Long count = menuMapper.selectCount(wrapper);
+            Long lifecycleMenuId = createLifecycleMenu();
             
-            if (count > 0) {
-                log.info("SCM菜单已存在，跳过初始化（缓存已清除）");
-                return;
-            }
+            Long accessMenuId = createAccessMenu(lifecycleMenuId);
             
-            Long parentId = createScmParentMenu();
-            
-            Long supplierMenuId = createSupplierMenu(parentId);
+            Long supplierMenuId = createSupplierMenu(accessMenuId);
             createSupplierButtons(supplierMenuId);
             
-            Long qualificationMenuId = createQualificationMenu(parentId);
+            Long qualificationMenuId = createQualificationMenu(accessMenuId);
             createQualificationButtons(qualificationMenuId);
             
-            Long alertMenuId = createAlertMenu(parentId);
+            Long alertMenuId = createAlertMenu(accessMenuId);
             createAlertButtons(alertMenuId);
             
-            Long classificationMenuId = createClassificationMenu(parentId);
+            Long classificationMenuId = createClassificationMenu(accessMenuId);
             createClassificationButtons(classificationMenuId);
             
             log.info("SCM菜单初始化完成");
@@ -86,10 +80,46 @@ public class ScmMenuInitializer implements CommandLineRunner {
         }
     }
 
-    private Long createScmParentMenu() {
+    private void deleteOldScmMenus() {
+        try {
+            LambdaQueryWrapper<SysMenu> scmWrapper = new LambdaQueryWrapper<>();
+            scmWrapper.like(SysMenu::getPath, "/scm")
+                    .or()
+                    .eq(SysMenu::getMenuName, "SCM管理")
+                    .or()
+                    .like(SysMenu::getPermissionKey, "scm:");
+            List<SysMenu> oldMenus = menuMapper.selectList(scmWrapper);
+            
+            if (oldMenus == null || oldMenus.isEmpty()) {
+                log.info("未找到旧的SCM菜单，无需删除");
+                return;
+            }
+            
+            List<Long> menuIds = oldMenus.stream()
+                    .map(SysMenu::getId)
+                    .toList();
+            
+            log.info("准备删除旧的SCM菜单: {} 个", menuIds.size());
+            
+            LambdaQueryWrapper<SysRoleMenu> roleMenuWrapper = new LambdaQueryWrapper<>();
+            roleMenuWrapper.in(SysRoleMenu::getMenuId, menuIds);
+            int deletedRoleMenus = roleMenuMapper.delete(roleMenuWrapper);
+            log.info("删除角色菜单关联: {} 条", deletedRoleMenus);
+            
+            for (Long menuId : menuIds) {
+                menuMapper.deleteById(menuId);
+            }
+            log.info("删除旧SCM菜单完成: {} 个", menuIds.size());
+            
+        } catch (Exception e) {
+            log.warn("删除旧SCM菜单失败", e);
+        }
+    }
+
+    private Long createLifecycleMenu() {
         SysMenu menu = new SysMenu();
         menu.setParentId(0L);
-        menu.setMenuName("SCM管理");
+        menu.setMenuName("供应商全生命周期管理");
         menu.setMenuType(1);
         menu.setPath("/scm");
         menu.setComponent("Layout");
@@ -102,7 +132,27 @@ public class ScmMenuInitializer implements CommandLineRunner {
         
         assignToAdmin(menu.getId());
         
-        log.info("创建菜单: SCM管理, ID={}", menu.getId());
+        log.info("创建菜单: 供应商全生命周期管理, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createAccessMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("准入与分级管理");
+        menu.setMenuType(1);
+        menu.setPath("access");
+        menu.setComponent("Layout");
+        menu.setIcon("Document");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 准入与分级管理, ID={}", menu.getId());
         return menu.getId();
     }
 
@@ -220,7 +270,7 @@ public class ScmMenuInitializer implements CommandLineRunner {
         menu.setPath("classification");
         menu.setComponent("scm/classification/index");
         menu.setIcon("Grid");
-        menu.setSortOrder(3);
+        menu.setSortOrder(4);
         menu.setIsVisible(1);
         menu.setStatus(1);
         menu.setIsSystem(1);
