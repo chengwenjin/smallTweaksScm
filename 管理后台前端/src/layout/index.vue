@@ -52,6 +52,7 @@
             <el-menu-item index="/scm/qualification">资质审核</el-menu-item>
             <el-menu-item index="/scm/classification">分级分类</el-menu-item>
             <el-menu-item index="/scm/alert">预警管理</el-menu-item>
+            <el-menu-item index="/scm/blacklist">黑名单管理</el-menu-item>
           </el-sub-menu>
         </el-sub-menu>
       </el-menu>
