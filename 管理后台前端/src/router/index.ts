@@ -102,6 +102,18 @@ const routes: RouteRecordRaw[] = [
         name: 'TenderManagement',
         component: () => import('@/views/scm/Tender.vue'),
         meta: { title: '招投标管理' }
+      },
+      {
+        path: 'scm/kpi',
+        name: 'KpiManagement',
+        component: () => import('@/views/scm/Kpi.vue'),
+        meta: { title: '多维考核' }
+      },
+      {
+        path: 'scm/report',
+        name: 'ReportManagement',
+        component: () => import('@/views/scm/Report.vue'),
+        meta: { title: '考核报告' }
       }
     ]
   }

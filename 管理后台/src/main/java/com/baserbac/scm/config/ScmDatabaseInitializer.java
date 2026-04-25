@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -45,6 +46,8 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             checkAndCreateBlacklistTable();
             
             checkAndCreateInquiryTables();
+            
+            checkAndCreatePerformanceTables();
             
             log.info("SCM数据库表结构检查完成");
         } catch (Exception e) {
@@ -378,6 +381,445 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.error("检查或创建投标单表失败", e);
         }
+    }
+
+    private void checkAndCreatePerformanceTables() {
+        try {
+            checkAndCreateKpiTable();
+            checkAndCreateReportTable();
+            
+            insertPerformanceTestData();
+            
+        } catch (Exception e) {
+            log.error("检查或创建绩效考核表失败", e);
+        }
+    }
+
+    private void checkAndCreateKpiTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_supplier_kpi'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_supplier_kpi (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        period_type TINYINT COMMENT '周期类型：1月度 2季度 3年度',
+                        year INT COMMENT '年份',
+                        quarter INT COMMENT '季度',
+                        month INT COMMENT '月份',
+                        delivery_on_time_rate DECIMAL(10,2) COMMENT '交付准时率',
+                        delivery_total_count INT COMMENT '交付总次数',
+                        delivery_on_time_count INT COMMENT '交付准时次数',
+                        quality_pass_rate DECIMAL(10,2) COMMENT '来料质检合格率',
+                        quality_total_count INT COMMENT '质检总次数',
+                        quality_pass_count INT COMMENT '质检合格次数',
+                        price_competitiveness DECIMAL(10,2) COMMENT '价格竞争力',
+                        price_compare_count INT COMMENT '价格对比次数',
+                        price_best_count INT COMMENT '价格最优次数',
+                        service_response_speed DECIMAL(10,2) COMMENT '售后服务响应速度',
+                        service_total_count INT COMMENT '服务总次数',
+                        service_response_on_time_count INT COMMENT '服务响应及时次数',
+                        total_score DECIMAL(10,2) COMMENT '综合评分',
+                        grade TINYINT COMMENT '等级：1A级 2AA级 3AAA级',
+                        status TINYINT DEFAULT 1 COMMENT '状态',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_supplier_id (supplier_id),
+                        KEY idx_period (year, period_type, quarter)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应商KPI记录表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建供应商KPI表成功: scm_supplier_kpi");
+            } else {
+                log.debug("供应商KPI表已存在: scm_supplier_kpi");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建KPI表失败", e);
+        }
+    }
+
+    private void checkAndCreateReportTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_supplier_performance_report'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_supplier_performance_report (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        report_no VARCHAR(50) COMMENT '报告编号',
+                        report_name VARCHAR(200) COMMENT '报告名称',
+                        report_type TINYINT COMMENT '报告类型：1季度 2年度',
+                        year INT COMMENT '年份',
+                        quarter INT COMMENT '季度',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        delivery_on_time_rate DECIMAL(10,2) COMMENT '交付准时率',
+                        quality_pass_rate DECIMAL(10,2) COMMENT '来料质检合格率',
+                        price_competitiveness DECIMAL(10,2) COMMENT '价格竞争力',
+                        service_response_speed DECIMAL(10,2) COMMENT '售后服务响应速度',
+                        total_score DECIMAL(10,2) COMMENT '综合评分',
+                        grade TINYINT COMMENT '等级：1A级 2AA级 3AAA级',
+                        ranking INT COMMENT '排名',
+                        total_suppliers INT COMMENT '总供应商数',
+                        previous_delivery_rate DECIMAL(10,2) COMMENT '上期交付准时率',
+                        previous_quality_rate DECIMAL(10,2) COMMENT '上期质检合格率',
+                        previous_price_score DECIMAL(10,2) COMMENT '上期价格竞争力',
+                        previous_service_score DECIMAL(10,2) COMMENT '上期服务响应速度',
+                        previous_total_score DECIMAL(10,2) COMMENT '上期综合评分',
+                        previous_grade TINYINT COMMENT '上期等级',
+                        previous_ranking INT COMMENT '上期排名',
+                        quota_suggestion DECIMAL(5,2) COMMENT '配额建议',
+                        strength_analysis TEXT COMMENT '优势分析',
+                        weakness_analysis TEXT COMMENT '劣势分析',
+                        improvement_suggestion TEXT COMMENT '改进建议',
+                        start_date DATE COMMENT '统计开始日期',
+                        end_date DATE COMMENT '统计结束日期',
+                        status TINYINT DEFAULT 1 COMMENT '状态',
+                        approved_by VARCHAR(50) COMMENT '审批人',
+                        approve_time DATETIME COMMENT '审批时间',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_report_no (report_no),
+                        KEY idx_supplier_id (supplier_id),
+                        KEY idx_period (year, report_type, quarter)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='供应商绩效报告表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建供应商绩效报告表成功: scm_supplier_performance_report");
+            } else {
+                log.debug("供应商绩效报告表已存在: scm_supplier_performance_report");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建绩效报告表失败", e);
+        }
+    }
+
+    private void insertPerformanceTestData() {
+        try {
+            List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
+                "SELECT id, supplier_code, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (suppliers.isEmpty()) {
+                log.warn("没有供应商数据，无法生成绩效考核测试数据");
+                return;
+            }
+            
+            String kpiCountSql = "SELECT COUNT(*) FROM scm_supplier_kpi WHERE is_deleted = 0";
+            Integer kpiCount = jdbcTemplate.queryForObject(kpiCountSql, Integer.class);
+            
+            if (kpiCount == null || kpiCount < 30) {
+                insertKpiTestData(suppliers);
+            } else {
+                log.info("KPI测试数据已存在: {}条", kpiCount);
+            }
+            
+            String reportCountSql = "SELECT COUNT(*) FROM scm_supplier_performance_report WHERE is_deleted = 0";
+            Integer reportCount = jdbcTemplate.queryForObject(reportCountSql, Integer.class);
+            
+            if (reportCount == null || reportCount < 30) {
+                insertReportTestData(suppliers);
+            } else {
+                log.info("绩效报告测试数据已存在: {}条", reportCount);
+            }
+            
+        } catch (Exception e) {
+            log.error("插入绩效考核测试数据失败", e);
+        }
+    }
+
+    private void insertKpiTestData(List<Map<String, Object>> suppliers) {
+        LocalDate today = LocalDate.now();
+        int currentYear = today.getYear();
+        
+        String insertKpiSql = """
+            INSERT INTO scm_supplier_kpi 
+            (supplier_id, supplier_name, period_type, year, quarter, month,
+             delivery_on_time_rate, delivery_total_count, delivery_on_time_count,
+             quality_pass_rate, quality_total_count, quality_pass_count,
+             price_competitiveness, price_compare_count, price_best_count,
+             service_response_speed, service_total_count, service_response_on_time_count,
+             total_score, grade, status, is_deleted, create_by, remark)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < Math.min(5, suppliers.size()); i++) {
+            Map<String, Object> supplier = suppliers.get(i);
+            Long supplierId = ((Number) supplier.get("id")).longValue();
+            String supplierName = (String) supplier.get("supplier_name");
+            
+            for (int q = 1; q <= 4; q++) {
+                for (int m = 1; m <= 3; m++) {
+                    int month = (q - 1) * 3 + m;
+                    
+                    double baseRate = 80 + Math.random() * 20;
+                    double qualityRate = 85 + Math.random() * 15;
+                    double priceScore = 70 + Math.random() * 25;
+                    double serviceScore = 75 + Math.random() * 20;
+                    
+                    BigDecimal deliveryRate = new BigDecimal(baseRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                    BigDecimal qualityPassRate = new BigDecimal(qualityRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                    BigDecimal priceCompetitiveness = new BigDecimal(priceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                    BigDecimal serviceResponseSpeed = new BigDecimal(serviceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                    
+                    int deliveryTotal = 50 + (int) (Math.random() * 50);
+                    int deliveryOnTime = (int) (deliveryTotal * baseRate / 100);
+                    int qualityTotal = 30 + (int) (Math.random() * 30);
+                    int qualityPass = (int) (qualityTotal * qualityRate / 100);
+                    int priceCompare = 10 + (int) (Math.random() * 15);
+                    int priceBest = (int) (priceCompare * priceScore / 100);
+                    int serviceTotal = 8 + (int) (Math.random() * 12);
+                    int serviceResponse = (int) (serviceTotal * serviceScore / 100);
+                    
+                    BigDecimal totalScore = deliveryRate.multiply(new BigDecimal("0.30"))
+                        .add(qualityPassRate.multiply(new BigDecimal("0.30")))
+                        .add(priceCompetitiveness.multiply(new BigDecimal("0.20")))
+                        .add(serviceResponseSpeed.multiply(new BigDecimal("0.20")))
+                        .setScale(2, java.math.RoundingMode.HALF_UP);
+                    
+                    int grade;
+                    if (totalScore.compareTo(new BigDecimal("90")) >= 0) {
+                        grade = 3;
+                    } else if (totalScore.compareTo(new BigDecimal("80")) >= 0) {
+                        grade = 2;
+                    } else {
+                        grade = 1;
+                    }
+                    
+                    String remark = supplierName + " - " + (currentYear - 1) + "年第" + q + "季度" + month + "月KPI数据";
+                    
+                    try {
+                        jdbcTemplate.update(insertKpiSql,
+                            supplierId, supplierName, 1, currentYear - 1, q, month,
+                            deliveryRate, deliveryTotal, deliveryOnTime,
+                            qualityPassRate, qualityTotal, qualityPass,
+                            priceCompetitiveness, priceCompare, priceBest,
+                            serviceResponseSpeed, serviceTotal, serviceResponse,
+                            totalScore, grade, 1, 0, "admin", remark
+                        );
+                        inserted++;
+                    } catch (Exception e) {
+                        log.warn("插入KPI测试数据失败", e);
+                    }
+                }
+            }
+            
+            for (int q = 1; q <= 4; q++) {
+                double baseRate = 82 + Math.random() * 18;
+                double qualityRate = 87 + Math.random() * 13;
+                double priceScore = 72 + Math.random() * 23;
+                double serviceScore = 78 + Math.random() * 18;
+                
+                BigDecimal deliveryRate = new BigDecimal(baseRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal qualityPassRate = new BigDecimal(qualityRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal priceCompetitiveness = new BigDecimal(priceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal serviceResponseSpeed = new BigDecimal(serviceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                int deliveryTotal = 150 + (int) (Math.random() * 100);
+                int deliveryOnTime = (int) (deliveryTotal * baseRate / 100);
+                int qualityTotal = 90 + (int) (Math.random() * 60);
+                int qualityPass = (int) (qualityTotal * qualityRate / 100);
+                int priceCompare = 30 + (int) (Math.random() * 30);
+                int priceBest = (int) (priceCompare * priceScore / 100);
+                int serviceTotal = 25 + (int) (Math.random() * 25);
+                int serviceResponse = (int) (serviceTotal * serviceScore / 100);
+                
+                BigDecimal totalScore = deliveryRate.multiply(new BigDecimal("0.30"))
+                    .add(qualityPassRate.multiply(new BigDecimal("0.30")))
+                    .add(priceCompetitiveness.multiply(new BigDecimal("0.20")))
+                    .add(serviceResponseSpeed.multiply(new BigDecimal("0.20")))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                int grade;
+                if (totalScore.compareTo(new BigDecimal("90")) >= 0) {
+                    grade = 3;
+                } else if (totalScore.compareTo(new BigDecimal("80")) >= 0) {
+                    grade = 2;
+                } else {
+                    grade = 1;
+                }
+                
+                String remark = supplierName + " - " + (currentYear - 1) + "年第" + q + "季度KPI数据";
+                
+                try {
+                    jdbcTemplate.update(insertKpiSql,
+                        supplierId, supplierName, 2, currentYear - 1, q, null,
+                        deliveryRate, deliveryTotal, deliveryOnTime,
+                        qualityPassRate, qualityTotal, qualityPass,
+                        priceCompetitiveness, priceCompare, priceBest,
+                        serviceResponseSpeed, serviceTotal, serviceResponse,
+                        totalScore, grade, 1, 0, "admin", remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入季度KPI测试数据失败", e);
+                }
+            }
+        }
+        
+        log.info("已插入{}条KPI测试数据", inserted);
+    }
+
+    private void insertReportTestData(List<Map<String, Object>> suppliers) {
+        LocalDate today = LocalDate.now();
+        int currentYear = today.getYear();
+        
+        String insertReportSql = """
+            INSERT INTO scm_supplier_performance_report 
+            (report_no, report_name, report_type, year, quarter,
+             supplier_id, supplier_name,
+             delivery_on_time_rate, quality_pass_rate, price_competitiveness, service_response_speed,
+             total_score, grade, ranking, total_suppliers,
+             previous_delivery_rate, previous_quality_rate, previous_price_score, previous_service_score,
+             previous_total_score, previous_grade, previous_ranking,
+             quota_suggestion, strength_analysis, weakness_analysis, improvement_suggestion,
+             start_date, end_date, status, is_deleted, create_by, remark)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """;
+        
+        int totalSuppliers = suppliers.size();
+        int inserted = 0;
+        
+        for (int i = 0; i < Math.min(5, suppliers.size()); i++) {
+            Map<String, Object> supplier = suppliers.get(i);
+            Long supplierId = ((Number) supplier.get("id")).longValue();
+            String supplierName = (String) supplier.get("supplier_name");
+            
+            for (int q = 1; q <= 4; q++) {
+                String reportNo = "RPT-Q" + (currentYear - 1) + q + String.format("%04d", i + 1);
+                String reportName = supplierName + " - " + (currentYear - 1) + "年第" + q + "季度绩效报告";
+                
+                double baseRate = 82 + Math.random() * 18;
+                double qualityRate = 87 + Math.random() * 13;
+                double priceScore = 72 + Math.random() * 23;
+                double serviceScore = 78 + Math.random() * 18;
+                
+                BigDecimal deliveryRate = new BigDecimal(baseRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal qualityPassRate = new BigDecimal(qualityRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal priceCompetitiveness = new BigDecimal(priceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal serviceResponseSpeed = new BigDecimal(serviceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                BigDecimal totalScore = deliveryRate.multiply(new BigDecimal("0.30"))
+                    .add(qualityPassRate.multiply(new BigDecimal("0.30")))
+                    .add(priceCompetitiveness.multiply(new BigDecimal("0.20")))
+                    .add(serviceResponseSpeed.multiply(new BigDecimal("0.20")))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                int grade;
+                if (totalScore.compareTo(new BigDecimal("90")) >= 0) {
+                    grade = 3;
+                } else if (totalScore.compareTo(new BigDecimal("80")) >= 0) {
+                    grade = 2;
+                } else {
+                    grade = 1;
+                }
+                
+                int ranking = 1 + (int) (Math.random() * totalSuppliers);
+                
+                double prevBaseRate = 80 + Math.random() * 20;
+                double prevQualityRate = 85 + Math.random() * 15;
+                double prevPriceScore = 70 + Math.random() * 25;
+                double prevServiceScore = 75 + Math.random() * 20;
+                
+                BigDecimal prevDelivery = new BigDecimal(prevBaseRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal prevQuality = new BigDecimal(prevQualityRate).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal prevPrice = new BigDecimal(prevPriceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                BigDecimal prevService = new BigDecimal(prevServiceScore).setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                BigDecimal prevTotal = prevDelivery.multiply(new BigDecimal("0.30"))
+                    .add(prevQuality.multiply(new BigDecimal("0.30")))
+                    .add(prevPrice.multiply(new BigDecimal("0.20")))
+                    .add(prevService.multiply(new BigDecimal("0.20")))
+                    .setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                int prevGrade;
+                if (prevTotal.compareTo(new BigDecimal("90")) >= 0) {
+                    prevGrade = 3;
+                } else if (prevTotal.compareTo(new BigDecimal("80")) >= 0) {
+                    prevGrade = 2;
+                } else {
+                    prevGrade = 1;
+                }
+                
+                int prevRanking = 1 + (int) (Math.random() * totalSuppliers);
+                
+                BigDecimal quotaSuggestion;
+                if (ranking <= Math.ceil(totalSuppliers * 0.2)) {
+                    quotaSuggestion = new BigDecimal("1.20");
+                } else if (ranking <= Math.ceil(totalSuppliers * 0.5)) {
+                    quotaSuggestion = new BigDecimal("1.00");
+                } else if (ranking <= Math.ceil(totalSuppliers * 0.8)) {
+                    quotaSuggestion = new BigDecimal("0.80");
+                } else {
+                    quotaSuggestion = new BigDecimal("0.50");
+                }
+                
+                String strengthAnalysis = "";
+                if (qualityPassRate.compareTo(new BigDecimal("90")) >= 0) {
+                    strengthAnalysis = "产品质量稳定可靠，来料质检合格率较高；";
+                }
+                if (deliveryRate.compareTo(new BigDecimal("90")) >= 0) {
+                    strengthAnalysis += "交付准时率高，供应链响应速度快；";
+                }
+                if (strengthAnalysis.isEmpty()) {
+                    strengthAnalysis = "综合表现中等，各指标相对均衡；";
+                }
+                
+                String weaknessAnalysis = "";
+                if (priceCompetitiveness.compareTo(new BigDecimal("75")) < 0) {
+                    weaknessAnalysis = "价格竞争力有待提升；";
+                }
+                if (serviceResponseSpeed.compareTo(new BigDecimal("80")) < 0) {
+                    weaknessAnalysis += "售后服务响应速度较慢，客户体验待改善；";
+                }
+                if (weaknessAnalysis.isEmpty()) {
+                    weaknessAnalysis = "整体表现良好，暂无明显短板；";
+                }
+                
+                String improvementSuggestion = "建议持续关注供应链稳定性，加强与供应商的沟通协作；建议建立快速响应机制，优化售后服务流程，提升客户满意度；";
+                
+                int startMonth = (q - 1) * 3 + 1;
+                int endMonth = q * 3;
+                LocalDate startDate = LocalDate.of(currentYear - 1, startMonth, 1);
+                LocalDate endDate = LocalDate.of(currentYear - 1, endMonth, LocalDate.of(currentYear - 1, endMonth, 1).lengthOfMonth());
+                
+                String remark = "测试数据 - " + supplierName + " " + (currentYear - 1) + "年Q" + q;
+                
+                try {
+                    jdbcTemplate.update(insertReportSql,
+                        reportNo, reportName, 1, currentYear - 1, q,
+                        supplierId, supplierName,
+                        deliveryRate, qualityPassRate, priceCompetitiveness, serviceResponseSpeed,
+                        totalScore, grade, ranking, totalSuppliers,
+                        prevDelivery, prevQuality, prevPrice, prevService,
+                        prevTotal, prevGrade, prevRanking,
+                        quotaSuggestion, strengthAnalysis, weaknessAnalysis, improvementSuggestion,
+                        startDate, endDate, 1, 0, "admin", remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入绩效报告测试数据失败", e);
+                }
+            }
+        }
+        
+        log.info("已插入{}条绩效报告测试数据", inserted);
     }
 
     private void insertInquiryTestData() {
