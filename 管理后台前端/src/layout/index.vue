@@ -64,6 +64,14 @@
             <el-menu-item index="/scm/comparison">智能比价</el-menu-item>
             <el-menu-item index="/scm/tender">招投标管理</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/scm/performance">
+            <template #title>
+              <el-icon><TrendCharts /></el-icon>
+              <span>绩效考核体系</span>
+            </template>
+            <el-menu-item index="/scm/kpi">多维考核</el-menu-item>
+            <el-menu-item index="/scm/report">考核报告</el-menu-item>
+          </el-sub-menu>
         </el-sub-menu>
       </el-menu>
     </el-aside>

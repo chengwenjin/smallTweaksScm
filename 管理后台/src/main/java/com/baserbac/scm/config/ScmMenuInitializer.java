@@ -93,6 +93,17 @@ public class ScmMenuInitializer implements CommandLineRunner {
             log.info("      [三级] 招投标管理 (ID={}, parentId={})", tenderMenuId, inquiryMenuId);
             createTenderButtons(tenderMenuId);
             
+            Long performanceMenuId = createPerformanceMenu(lifecycleMenuId);
+            log.info("    [二级] 绩效考核体系 (ID={}, parentId={})", performanceMenuId, lifecycleMenuId);
+            
+            Long kpiMenuId = createKpiMenu(performanceMenuId);
+            log.info("      [三级] 多维考核 (ID={}, parentId={})", kpiMenuId, performanceMenuId);
+            createKpiButtons(kpiMenuId);
+            
+            Long reportMenuId = createReportMenu(performanceMenuId);
+            log.info("      [三级] 考核报告 (ID={}, parentId={})", reportMenuId, performanceMenuId);
+            createReportButtons(reportMenuId);
+            
             log.info("\n========================================");
             log.info("  SCM菜单初始化完成！");
             log.info("========================================");
@@ -725,6 +736,94 @@ public class ScmMenuInitializer implements CommandLineRunner {
         buttons.add(createButton(parentId, "查看投标", "scm:tender:bid", 3));
         buttons.add(createButton(parentId, "开标", "scm:tender:open", 4));
         buttons.add(createButton(parentId, "定标", "scm:tender:award", 5));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createPerformanceMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("绩效考核体系");
+        menu.setMenuType(1);
+        menu.setPath("performance");
+        menu.setComponent("Layout");
+        menu.setIcon("TrendCharts");
+        menu.setSortOrder(3);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 绩效考核体系, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createKpiMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("多维考核");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:kpi:list");
+        menu.setPath("kpi");
+        menu.setComponent("scm/kpi/index");
+        menu.setIcon("DataLine");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 多维考核, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createKpiButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "计算KPI", "scm:kpi:calculate", 1));
+        buttons.add(createButton(parentId, "查看详情", "scm:kpi:view", 2));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createReportMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("考核报告");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:report:list");
+        menu.setPath("report");
+        menu.setComponent("scm/report/index");
+        menu.setIcon("DocumentCopy");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 考核报告, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createReportButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "生成报告", "scm:report:generate", 1));
+        buttons.add(createButton(parentId, "查看报告", "scm:report:view", 2));
         
         for (SysMenu btn : buttons) {
             menuMapper.insert(btn);
