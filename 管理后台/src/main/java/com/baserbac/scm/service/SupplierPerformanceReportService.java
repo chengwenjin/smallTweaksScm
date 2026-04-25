@@ -79,6 +79,18 @@ public class SupplierPerformanceReportService {
 
     @Transactional(rollbackFor = Exception.class)
     public void generateReports(Integer reportType, Integer year, Integer quarter) {
+        log.info("开始生成绩效报告，报告类型:{}, 年份:{}, 季度:{}", reportType, year, quarter);
+        
+        if (reportType == null || (reportType != 1 && reportType != 2)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "报告类型参数无效");
+        }
+        if (year == null || year < 2000 || year > 2100) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "年份参数无效");
+        }
+        if (reportType == 1 && (quarter == null || quarter < 1 || quarter > 4)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "季度参数无效");
+        }
+        
         int periodType = reportType == 1 ? 2 : 3;
         
         LambdaQueryWrapper<SupplierKpi> kpiWrapper = new LambdaQueryWrapper<>();
@@ -92,8 +104,10 @@ public class SupplierPerformanceReportService {
         List<SupplierKpi> kpiList = kpiMapper.selectList(kpiWrapper);
         
         if (kpiList.isEmpty()) {
-            log.warn("没有找到指定周期的KPI数据，报告类型:{}, 年份:{}, 季度:{}", reportType, year, quarter);
-            return;
+            String reportTypeName = reportType == 1 ? "季度" : "年度";
+            String quarterStr = reportType == 1 ? "第" + quarter + "季度" : "";
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), 
+                "未找到" + year + "年" + quarterStr + reportTypeName + "的KPI数据，无法生成绩效报告。请先确保对应周期的KPI数据已存在。");
         }
         
         Map<Long, List<SupplierKpi>> supplierKpiMap = kpiList.stream()

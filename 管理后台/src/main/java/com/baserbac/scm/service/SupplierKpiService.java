@@ -69,11 +69,30 @@ public class SupplierKpiService {
 
     @Transactional(rollbackFor = Exception.class)
     public void calculateKpis(Integer periodType, Integer year, Integer quarter, Integer month) {
+        log.info("开始计算KPI，周期类型:{}, 年份:{}, 季度:{}, 月份:{}", periodType, year, quarter, month);
+        
+        if (periodType == null || (periodType < 1 || periodType > 3)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "周期类型参数无效，请选择月度、季度或年度");
+        }
+        if (year == null || year < 2000 || year > 2100) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "年份参数无效");
+        }
+        if (periodType == 1 && (month == null || month < 1 || month > 12)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "月份参数无效，有效范围为1-12");
+        }
+        if (periodType == 2 && (quarter == null || quarter < 1 || quarter > 4)) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "季度参数无效，有效范围为1-4");
+        }
+        
         List<Supplier> suppliers = supplierMapper.selectList(
             new LambdaQueryWrapper<Supplier>()
                 .eq(Supplier::getStatus, 1)
                 .eq(Supplier::getIsDeleted, 0)
         );
+        
+        if (suppliers.isEmpty()) {
+            throw new BusinessException(ResultCode.BAD_REQUEST.getCode(), "没有找到有效的供应商数据，无法计算KPI");
+        }
         
         for (Supplier supplier : suppliers) {
             calculateSupplierKpi(supplier, periodType, year, quarter, month);
