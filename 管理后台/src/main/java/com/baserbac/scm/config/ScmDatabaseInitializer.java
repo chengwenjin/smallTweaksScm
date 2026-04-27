@@ -49,6 +49,8 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             
             checkAndCreatePerformanceTables();
             
+            checkAndCreatePurchaseCollaborationTables();
+            
             log.info("SCM数据库表结构检查完成");
         } catch (Exception e) {
             log.warn("检查表结构失败: {}", e.getMessage());
@@ -1699,5 +1701,813 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         } catch (Exception e) {
             log.error("验证数据失败", e);
         }
+    }
+
+    private void checkAndCreatePurchaseCollaborationTables() {
+        try {
+            checkAndCreatePurchaseRequestNewTable();
+            checkAndCreatePurchaseRequestItemTable();
+            checkAndCreateDemandSummaryTable();
+            checkAndCreateDemandSummaryItemTable();
+            checkAndCreateMaterialInventoryTable();
+            checkAndCreateBomTable();
+            checkAndCreateProductionWorkOrderTable();
+            checkAndCreatePurchasePlanTable();
+            checkAndCreatePurchasePlanItemTable();
+            checkAndCreateOaApprovalTable();
+            checkAndCreatePurchaseOrderTable();
+            
+            insertPurchaseCollaborationTestData();
+            
+        } catch (Exception e) {
+            log.error("检查或创建采购全流程协同表失败", e);
+        }
+    }
+
+    private void checkAndCreatePurchaseRequestNewTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_request_new'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_request_new (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        req_no VARCHAR(50) COMMENT '申请单编号',
+                        req_title VARCHAR(200) COMMENT '申请单标题',
+                        req_dept VARCHAR(100) COMMENT '申请部门',
+                        req_person VARCHAR(50) COMMENT '申请人',
+                        req_phone VARCHAR(20) COMMENT '联系电话',
+                        required_date DATE COMMENT '需求日期',
+                        delivery_address VARCHAR(500) COMMENT '交货地址',
+                        urgency TINYINT COMMENT '紧急程度：1普通 2紧急 3特急',
+                        total_amount DECIMAL(18,2) COMMENT '总金额',
+                        budget_source VARCHAR(100) COMMENT '预算来源',
+                        description TEXT COMMENT '需求描述',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0草稿 1待提交 2审批中 3审批通过 4审批拒绝 5已转订单 6已取消',
+                        approval_status VARCHAR(50) COMMENT '审批状态',
+                        current_approver VARCHAR(50) COMMENT '当前审批人',
+                        submit_time DATETIME COMMENT '提交时间',
+                        approval_time DATETIME COMMENT '审批时间',
+                        approval_remark VARCHAR(1000) COMMENT '审批备注',
+                        generated_order_id BIGINT COMMENT '生成的采购订单ID',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_req_no (req_no),
+                        KEY idx_status (status),
+                        KEY idx_approval_status (approval_status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购申请表（新）'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购申请表成功: scm_purchase_request_new");
+            } else {
+                log.debug("采购申请表已存在: scm_purchase_request_new");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购申请表失败", e);
+        }
+    }
+
+    private void checkAndCreatePurchaseRequestItemTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_request_item'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_request_item (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        request_id BIGINT COMMENT '采购申请单ID',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        quantity DECIMAL(18,2) COMMENT '需求数量',
+                        unit_price DECIMAL(18,2) COMMENT '参考单价',
+                        total_price DECIMAL(18,2) COMMENT '总金额',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_request_id (request_id),
+                        KEY idx_material_code (material_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购申请明细表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购申请明细表成功: scm_purchase_request_item");
+            } else {
+                log.debug("采购申请明细表已存在: scm_purchase_request_item");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购申请明细表失败", e);
+        }
+    }
+
+    private void checkAndCreateDemandSummaryTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_demand_summary'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_demand_summary (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        summary_no VARCHAR(50) COMMENT '汇总单编号',
+                        summary_name VARCHAR(200) COMMENT '汇总单名称',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        period_type TINYINT COMMENT '周期类型：1月度 2季度 3年度',
+                        year INT COMMENT '年份',
+                        month INT COMMENT '月份',
+                        start_date DATE COMMENT '开始日期',
+                        end_date DATE COMMENT '结束日期',
+                        request_count INT COMMENT '关联申请单数量',
+                        item_count INT COMMENT '物料种类数量',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        estimated_amount DECIMAL(18,2) COMMENT '预估金额',
+                        status VARCHAR(50) COMMENT '状态',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_summary_no (summary_no),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='需求汇总表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建需求汇总表成功: scm_demand_summary");
+            } else {
+                log.debug("需求汇总表已存在: scm_demand_summary");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建需求汇总表失败", e);
+        }
+    }
+
+    private void checkAndCreateDemandSummaryItemTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_demand_summary_item'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_demand_summary_item (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        summary_id BIGINT COMMENT '汇总单ID',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        source_request_count INT COMMENT '来源申请单数量',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        avg_unit_price DECIMAL(18,2) COMMENT '平均单价',
+                        estimated_amount DECIMAL(18,2) COMMENT '预估金额',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_summary_id (summary_id),
+                        KEY idx_material_code (material_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='需求汇总明细表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建需求汇总明细表成功: scm_demand_summary_item");
+            } else {
+                log.debug("需求汇总明细表已存在: scm_demand_summary_item");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建需求汇总明细表失败", e);
+        }
+    }
+
+    private void checkAndCreateMaterialInventoryTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_material_inventory'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_material_inventory (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        stock_quantity DECIMAL(18,2) COMMENT '库存数量',
+                        available_quantity DECIMAL(18,2) COMMENT '可用数量',
+                        reserved_quantity DECIMAL(18,2) COMMENT '预留数量',
+                        safety_stock DECIMAL(18,2) COMMENT '安全库存',
+                        minimum_stock DECIMAL(18,2) COMMENT '最低库存',
+                        maximum_stock DECIMAL(18,2) COMMENT '最高库存',
+                        warehouse_code VARCHAR(50) COMMENT '仓库编码',
+                        warehouse_name VARCHAR(100) COMMENT '仓库名称',
+                        location_code VARCHAR(50) COMMENT '库位编码',
+                        unit_price DECIMAL(18,2) COMMENT '单价',
+                        total_amount DECIMAL(18,2) COMMENT '总金额',
+                        last_in_date DATE COMMENT '最近入库日期',
+                        last_out_date DATE COMMENT '最近出库日期',
+                        status TINYINT DEFAULT 1 COMMENT '状态',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_material_code (material_code),
+                        KEY idx_warehouse_code (warehouse_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建库存表成功: scm_material_inventory");
+            } else {
+                log.debug("库存表已存在: scm_material_inventory");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建库存表失败", e);
+        }
+    }
+
+    private void checkAndCreateBomTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_bom'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_bom (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        bom_no VARCHAR(50) COMMENT 'BOM编号',
+                        bom_name VARCHAR(200) COMMENT 'BOM名称',
+                        bom_version INT COMMENT 'BOM版本',
+                        parent_code VARCHAR(50) COMMENT '父项编码',
+                        parent_name VARCHAR(200) COMMENT '父项名称',
+                        parent_spec VARCHAR(500) COMMENT '父项规格',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        usage_quantity DECIMAL(18,4) COMMENT '用量',
+                        scrap_rate DECIMAL(10,4) COMMENT '损耗率',
+                        sort_order INT COMMENT '排序',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_bom_no (bom_no),
+                        KEY idx_parent_code (parent_code),
+                        KEY idx_material_code (material_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='BOM表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建BOM表成功: scm_bom");
+            } else {
+                log.debug("BOM表已存在: scm_bom");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建BOM表失败", e);
+        }
+    }
+
+    private void checkAndCreateProductionWorkOrderTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_production_work_order'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_production_work_order (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        work_order_no VARCHAR(50) COMMENT '工单编号',
+                        work_order_name VARCHAR(200) COMMENT '工单名称',
+                        product_code VARCHAR(50) COMMENT '产品编码',
+                        product_name VARCHAR(200) COMMENT '产品名称',
+                        product_spec VARCHAR(500) COMMENT '产品规格',
+                        plan_quantity DECIMAL(18,2) COMMENT '计划数量',
+                        actual_quantity DECIMAL(18,2) COMMENT '实际数量',
+                        plan_start_date DATE COMMENT '计划开始日期',
+                        plan_end_date DATE COMMENT '计划结束日期',
+                        actual_start_date DATE COMMENT '实际开始日期',
+                        actual_end_date DATE COMMENT '实际结束日期',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0待开始 1进行中 2已完成 3已取消',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_work_order_no (work_order_no),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生产工单表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建生产工单表成功: scm_production_work_order");
+            } else {
+                log.debug("生产工单表已存在: scm_production_work_order");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建生产工单表失败", e);
+        }
+    }
+
+    private void checkAndCreatePurchasePlanTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_plan'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_plan (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        plan_no VARCHAR(50) COMMENT '计划单编号',
+                        plan_name VARCHAR(200) COMMENT '计划单名称',
+                        plan_type TINYINT COMMENT '计划类型：1月度计划 2季度计划 3年度计划 4紧急计划 5补货计划',
+                        source_type VARCHAR(50) COMMENT '来源类型：1需求汇总 2生产工单 3安全库存 4人工创建',
+                        year INT COMMENT '年份',
+                        month INT COMMENT '月份',
+                        quarter INT COMMENT '季度',
+                        start_date DATE COMMENT '开始日期',
+                        end_date DATE COMMENT '结束日期',
+                        item_count INT COMMENT '物料种类数量',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        estimated_amount DECIMAL(18,2) COMMENT '预估金额',
+                        status VARCHAR(50) COMMENT '状态',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_plan_no (plan_no),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购计划表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购计划表成功: scm_purchase_plan");
+            } else {
+                log.debug("采购计划表已存在: scm_purchase_plan");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购计划表失败", e);
+        }
+    }
+
+    private void checkAndCreatePurchasePlanItemTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_plan_item'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_plan_item (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        plan_id BIGINT COMMENT '采购计划ID',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        required_quantity DECIMAL(18,2) COMMENT '需求数量',
+                        stock_quantity DECIMAL(18,2) COMMENT '现有库存',
+                        safety_stock DECIMAL(18,2) COMMENT '安全库存',
+                        shortage_quantity DECIMAL(18,2) COMMENT '缺货数量',
+                        purchase_quantity DECIMAL(18,2) COMMENT '建议采购数量',
+                        unit_price DECIMAL(18,2) COMMENT '参考单价',
+                        estimated_amount DECIMAL(18,2) COMMENT '预估金额',
+                        recommended_supplier_id BIGINT COMMENT '推荐供应商ID',
+                        recommended_supplier_name VARCHAR(200) COMMENT '推荐供应商名称',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_plan_id (plan_id),
+                        KEY idx_material_code (material_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购计划明细表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购计划明细表成功: scm_purchase_plan_item");
+            } else {
+                log.debug("采购计划明细表已存在: scm_purchase_plan_item");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购计划明细表失败", e);
+        }
+    }
+
+    private void checkAndCreateOaApprovalTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_oa_approval'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_oa_approval (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        approval_no VARCHAR(50) COMMENT '审批单编号',
+                        source_type TINYINT COMMENT '来源类型：1采购申请 2采购计划 3采购订单',
+                        source_id BIGINT COMMENT '来源单据ID',
+                        source_no VARCHAR(50) COMMENT '来源单据编号',
+                        approval_title VARCHAR(200) COMMENT '审批标题',
+                        current_approver_id VARCHAR(50) COMMENT '当前审批人ID',
+                        current_approver_name VARCHAR(50) COMMENT '当前审批人名称',
+                        approval_status VARCHAR(50) COMMENT '审批状态',
+                        submit_time DATETIME COMMENT '提交时间',
+                        approval_time DATETIME COMMENT '审批时间',
+                        approval_remark VARCHAR(1000) COMMENT '审批备注',
+                        approval_history TEXT COMMENT '审批历史记录',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_approval_no (approval_no),
+                        KEY idx_source (source_type, source_id),
+                        KEY idx_approval_status (approval_status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='OA审批记录表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建OA审批记录表成功: scm_oa_approval");
+            } else {
+                log.debug("OA审批记录表已存在: scm_oa_approval");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建OA审批记录表失败", e);
+        }
+    }
+
+    private void checkAndCreatePurchaseOrderTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_order'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_order (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        order_name VARCHAR(200) COMMENT '订单名称',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_code VARCHAR(50) COMMENT '供应商编码',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        source_request_id BIGINT COMMENT '来源采购申请ID',
+                        source_request_no VARCHAR(50) COMMENT '来源采购申请编号',
+                        approval_id BIGINT COMMENT '审批单ID',
+                        approval_no VARCHAR(50) COMMENT '审批单编号',
+                        order_type TINYINT COMMENT '订单类型：1标准订单 2紧急订单 3补货订单',
+                        order_date DATE COMMENT '订单日期',
+                        expected_delivery_date DATE COMMENT '期望交货日期',
+                        actual_delivery_date DATE COMMENT '实际交货日期',
+                        item_count INT COMMENT '物料种类数量',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        total_amount DECIMAL(18,2) COMMENT '总金额',
+                        payment_terms VARCHAR(500) COMMENT '付款条款',
+                        delivery_terms VARCHAR(500) COMMENT '交货条款',
+                        delivery_address VARCHAR(500) COMMENT '交货地址',
+                        contact_person VARCHAR(50) COMMENT '联系人',
+                        contact_phone VARCHAR(20) COMMENT '联系电话',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0新建 1待审批 2审批通过 3已发布 4部分收货 5全部收货 6已完成 7已取消',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_order_no (order_no),
+                        KEY idx_supplier_id (supplier_id),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购订单表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购订单表成功: scm_purchase_order");
+            } else {
+                log.debug("采购订单表已存在: scm_purchase_order");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购订单表失败", e);
+        }
+    }
+
+    private void insertPurchaseCollaborationTestData() {
+        try {
+            jdbcTemplate.execute("SET NAMES utf8mb4");
+            jdbcTemplate.execute("SET CHARACTER SET utf8mb4");
+            
+            String requestCountSql = "SELECT COUNT(*) FROM scm_purchase_request_new WHERE is_deleted = 0";
+            Integer requestCount = jdbcTemplate.queryForObject(requestCountSql, Integer.class);
+            
+            if (requestCount == null || requestCount < 30) {
+                insertPurchaseRequestTestData();
+            } else {
+                log.info("采购申请测试数据已存在: {}条", requestCount);
+            }
+            
+            String inventoryCountSql = "SELECT COUNT(*) FROM scm_material_inventory WHERE is_deleted = 0";
+            Integer inventoryCount = jdbcTemplate.queryForObject(inventoryCountSql, Integer.class);
+            
+            if (inventoryCount == null || inventoryCount < 30) {
+                insertInventoryTestData();
+            } else {
+                log.info("库存测试数据已存在: {}条", inventoryCount);
+            }
+            
+            String bomCountSql = "SELECT COUNT(*) FROM scm_bom WHERE is_deleted = 0";
+            Integer bomCount = jdbcTemplate.queryForObject(bomCountSql, Integer.class);
+            
+            if (bomCount == null || bomCount < 20) {
+                insertBomTestData();
+            } else {
+                log.info("BOM测试数据已存在: {}条", bomCount);
+            }
+            
+            String workOrderCountSql = "SELECT COUNT(*) FROM scm_production_work_order WHERE is_deleted = 0";
+            Integer workOrderCount = jdbcTemplate.queryForObject(workOrderCountSql, Integer.class);
+            
+            if (workOrderCount == null || workOrderCount < 20) {
+                insertWorkOrderTestData();
+            } else {
+                log.info("生产工单测试数据已存在: {}条", workOrderCount);
+            }
+            
+        } catch (Exception e) {
+            log.error("插入采购全流程协同测试数据失败", e);
+        }
+    }
+
+    private void insertPurchaseRequestTestData() {
+        LocalDate today = LocalDate.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+        
+        String[] depts = {"生产部", "技术部", "采购部", "质量部", "设备部", "仓库", "行政部", "财务部", "销售部", "研发部"};
+        String[] persons = {"张三", "李四", "王五", "赵六", "钱七", "孙八", "周九", "吴十", "郑十一", "王十二"};
+        String[] phones = {"13800138001", "13800138002", "13800138003", "13800138004", "13800138005"};
+        
+        String[] materialNames = {
+            "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+            "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+            "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+            "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+            "电机", "传感器", "控制器", "显示屏", "开关按钮",
+            "包装材料", "标签", "纸箱", "托盘", "缓冲材料",
+            "工具量具", "劳保用品", "办公用品", "清洁用品", "消防器材"
+        };
+        
+        String[] specs = {"304", "6061", "T2", "PP", "EPDM", "SMT", "DIP", "SMD", "RJ45", "RVV"};
+        String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
+        
+        String insertRequestSql = """
+            INSERT INTO scm_purchase_request_new 
+            (req_no, req_title, req_dept, req_person, req_phone, required_date, 
+             delivery_address, urgency, total_amount, budget_source, description, 
+             status, approval_status, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < 40; i++) {
+            String reqNo = "PR" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1);
+            String materialName = materialNames[i % materialNames.length];
+            String reqTitle = "采购申请 - " + materialName + (i % 5 == 0 ? "（紧急）" : "");
+            String dept = depts[i % depts.length];
+            String person = persons[i % persons.length];
+            String phone = phones[i % phones.length];
+            LocalDate requiredDate = today.plusDays(7 + i);
+            String address = "某某市某某区某某工业园区A栋" + (i % 5 + 1) + "号仓库";
+            int urgency = (i % 3) + 1;
+            java.math.BigDecimal totalAmount = new java.math.BigDecimal(1000 + i * 500 + (int)(Math.random() * 10000));
+            String budgetSource = i % 2 == 0 ? "年度预算" : "紧急采购预算";
+            String description = "采购" + materialName + "，用于生产线维护和产品生产。";
+            int status = i % 6;
+            String approvalStatus = "DRAFT";
+            if (status == 2) approvalStatus = "APPROVING";
+            else if (status == 3) approvalStatus = "APPROVED";
+            else if (status == 4) approvalStatus = "REJECTED";
+            else if (status == 5) approvalStatus = "APPROVED";
+            String remark = "测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertRequestSql,
+                    reqNo, reqTitle, dept, person, phone, requiredDate,
+                    address, urgency, totalAmount, budgetSource, description,
+                    status, approvalStatus, remark
+                );
+                inserted++;
+            } catch (Exception e) {
+                log.warn("插入采购申请测试数据失败: {} - {}", reqNo, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条采购申请测试数据", inserted);
+    }
+
+    private void insertInventoryTestData() {
+        LocalDate today = LocalDate.now();
+        
+        String[] materialCodes = {
+            "MAT001", "MAT002", "MAT003", "MAT004", "MAT005",
+            "MAT006", "MAT007", "MAT008", "MAT009", "MAT010",
+            "MAT011", "MAT012", "MAT013", "MAT014", "MAT015",
+            "MAT016", "MAT017", "MAT018", "MAT019", "MAT020",
+            "MAT021", "MAT022", "MAT023", "MAT024", "MAT025",
+            "MAT026", "MAT027", "MAT028", "MAT029", "MAT030",
+            "MAT031", "MAT032", "MAT033", "MAT034", "MAT035"
+        };
+        
+        String[] materialNames = {
+            "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+            "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+            "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+            "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+            "电机", "传感器", "控制器", "显示屏", "开关按钮",
+            "包装材料", "标签", "纸箱", "托盘", "缓冲材料",
+            "工具量具", "劳保用品", "办公用品", "清洁用品", "消防器材"
+        };
+        
+        String[] warehouses = {"原料仓库", "成品仓库", "备品备件库", "危险品库", "周转仓库"};
+        
+        String insertSql = """
+            INSERT INTO scm_material_inventory 
+            (material_code, material_name, material_spec, material_unit, material_category,
+             stock_quantity, available_quantity, reserved_quantity, safety_stock, minimum_stock, maximum_stock,
+             warehouse_code, warehouse_name, location_code, unit_price, total_amount,
+             last_in_date, last_out_date, status, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 'admin')
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < 35; i++) {
+            String code = materialCodes[i];
+            String name = materialNames[i];
+            String spec = "规格" + (i % 10 + 1);
+            String unit = i % 3 == 0 ? "千克" : (i % 3 == 1 ? "件" : "米");
+            String category = String.valueOf((i % 3) + 1);
+            
+            java.math.BigDecimal stockQty = new java.math.BigDecimal(100 + i * 50 + (int)(Math.random() * 500));
+            java.math.BigDecimal availableQty = stockQty.multiply(new java.math.BigDecimal("0.8")).setScale(2, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal reservedQty = stockQty.subtract(availableQty);
+            java.math.BigDecimal safetyStock = new java.math.BigDecimal(50 + i * 10);
+            java.math.BigDecimal minStock = safetyStock.multiply(new java.math.BigDecimal("0.5"));
+            java.math.BigDecimal maxStock = safetyStock.multiply(new java.math.BigDecimal("3"));
+            
+            String warehouse = warehouses[i % warehouses.length];
+            String location = "A-" + String.format("%02d", i / 5 + 1) + "-" + String.format("%02d", i % 10 + 1);
+            java.math.BigDecimal unitPrice = new java.math.BigDecimal(10 + i * 5 + (int)(Math.random() * 100));
+            java.math.BigDecimal totalAmount = stockQty.multiply(unitPrice);
+            
+            LocalDate lastInDate = today.minusDays(i % 30);
+            LocalDate lastOutDate = today.minusDays((i + 5) % 20);
+            String remark = "库存测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertSql,
+                    code, name, spec, unit, category,
+                    stockQty, availableQty, reservedQty, safetyStock, minStock, maxStock,
+                    "WH" + (i % warehouses.length + 1), warehouse, location, unitPrice, totalAmount,
+                    lastInDate, lastOutDate, remark
+                );
+                inserted++;
+            } catch (Exception e) {
+                log.warn("插入库存测试数据失败: {} - {}", code, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条库存测试数据", inserted);
+    }
+
+    private void insertBomTestData() {
+        String[] bomNos = {"BOM001", "BOM002", "BOM003", "BOM004", "BOM005"};
+        String[] productNames = {"智能控制器", "数据采集终端", "电源模块", "通讯网关", "传感器组件"};
+        
+        String[] materialCodes = {
+            "MAT006", "MAT007", "MAT008", "MAT009", "MAT010",
+            "MAT016", "MAT017", "MAT018", "MAT019", "MAT020",
+            "MAT021", "MAT022", "MAT023", "MAT024", "MAT025"
+        };
+        
+        String[] materialNames = {
+            "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+            "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+            "电机", "传感器", "控制器", "显示屏", "开关按钮"
+        };
+        
+        String insertSql = """
+            INSERT INTO scm_bom 
+            (bom_no, bom_name, bom_version, parent_code, parent_name, parent_spec,
+             material_code, material_name, material_spec, material_unit, material_category,
+             usage_quantity, scrap_rate, sort_order, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < 5; i++) {
+            String bomNo = bomNos[i];
+            String productName = productNames[i];
+            String parentCode = "PROD" + String.format("%03d", i + 1);
+            
+            for (int j = 0; j < 5; j++) {
+                int materialIndex = i * 3 + j;
+                if (materialIndex >= materialCodes.length) materialIndex = materialIndex % materialCodes.length;
+                
+                String materialCode = materialCodes[materialIndex];
+                String materialName = materialNames[materialIndex];
+                java.math.BigDecimal usageQty = new java.math.BigDecimal(1 + j).setScale(2, java.math.RoundingMode.HALF_UP);
+                java.math.BigDecimal scrapRate = new java.math.BigDecimal("0.0" + (j + 1));
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        bomNo, productName + " BOM", 1, parentCode, productName, "V1.0",
+                        materialCode, materialName, "规格" + (materialIndex % 10 + 1), 
+                        j % 2 == 0 ? "个" : "件", String.valueOf((materialIndex % 3) + 1),
+                        usageQty, scrapRate, j + 1, "BOM测试数据" + (inserted + 1)
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入BOM测试数据失败: {} - {}", bomNo, e.getMessage());
+                }
+            }
+        }
+        
+        log.info("已插入{}条BOM测试数据", inserted);
+    }
+
+    private void insertWorkOrderTestData() {
+        LocalDate today = LocalDate.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+        
+        String[] productNames = {"智能控制器", "数据采集终端", "电源模块", "通讯网关", "传感器组件"};
+        String[] productCodes = {"PROD001", "PROD002", "PROD003", "PROD004", "PROD005"};
+        
+        String insertSql = """
+            INSERT INTO scm_production_work_order 
+            (work_order_no, work_order_name, product_code, product_name, product_spec,
+             plan_quantity, actual_quantity, plan_start_date, plan_end_date,
+             actual_start_date, actual_end_date, status, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < 25; i++) {
+            String workOrderNo = "WO" + today.minusDays(i).format(formatter) + String.format("%04d", i + 1);
+            int productIndex = i % 5;
+            String productName = productNames[productIndex];
+            String productCode = productCodes[productIndex];
+            String workOrderName = productName + "生产工单" + (i + 1);
+            
+            java.math.BigDecimal planQty = new java.math.BigDecimal(100 + i * 50 + (int)(Math.random() * 500));
+            java.math.BigDecimal actualQty = i % 3 == 2 ? planQty : planQty.multiply(new java.math.BigDecimal("0.7"));
+            
+            LocalDate planStartDate = today.minusDays(30 - i);
+            LocalDate planEndDate = planStartDate.plusDays(10);
+            LocalDate actualStartDate = i % 3 == 0 ? null : planStartDate.plusDays(1);
+            LocalDate actualEndDate = i % 3 == 2 ? planEndDate.minusDays(1) : null;
+            
+            int status = i % 4;
+            
+            String remark = "生产工单测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertSql,
+                    workOrderNo, workOrderName, productCode, productName, "V1.0",
+                    planQty, actualQty, planStartDate, planEndDate,
+                    actualStartDate, actualEndDate, status, remark
+                );
+                inserted++;
+            } catch (Exception e) {
+                log.warn("插入生产工单测试数据失败: {} - {}", workOrderNo, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条生产工单测试数据", inserted);
     }
 }

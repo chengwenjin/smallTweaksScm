@@ -114,6 +114,30 @@ const routes: RouteRecordRaw[] = [
         name: 'ReportManagement',
         component: () => import('@/views/scm/Report.vue'),
         meta: { title: '考核报告' }
+      },
+      {
+        path: 'scm/purchase-request',
+        name: 'PurchaseRequestManagement',
+        component: () => import('@/views/scm/PurchaseRequest.vue'),
+        meta: { title: '采购申请' }
+      },
+      {
+        path: 'scm/demand-summary',
+        name: 'DemandSummaryManagement',
+        component: () => import('@/views/scm/DemandSummary.vue'),
+        meta: { title: '需求汇总' }
+      },
+      {
+        path: 'scm/purchase-plan',
+        name: 'PurchasePlanManagement',
+        component: () => import('@/views/scm/PurchasePlan.vue'),
+        meta: { title: '智能补货' }
+      },
+      {
+        path: 'scm/oa-approval',
+        name: 'OaApprovalManagement',
+        component: () => import('@/views/scm/OaApproval.vue'),
+        meta: { title: '审批联动' }
       }
     ]
   }
