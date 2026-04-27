@@ -105,25 +105,39 @@ public class DemandSummaryService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public DemandSummary generateSummary(Integer periodType, Integer year, Integer month, String materialCategory, String operator) {
+    public DemandSummary generateSummary(com.baserbac.scm.dto.GenerateSummaryDTO dto, String operator) {
         LocalDate now = LocalDate.now();
+        Integer periodType = dto.getPeriodType();
+        Integer year = dto.getYear();
+        Integer month = dto.getMonth();
+        String materialCategory = dto.getMaterialCategory();
+        LocalDate startDate = dto.getStartDate();
+        LocalDate endDate = dto.getEndDate();
+        String summaryName = dto.getSummaryName();
+
         if (year == null) year = now.getYear();
         if (month == null) month = now.getMonthValue();
         if (periodType == null) periodType = 1;
 
-        LocalDate startDate;
-        LocalDate endDate;
+        if (materialCategory != null && materialCategory.length() <= 2) {
+            try {
+                Integer.parseInt(materialCategory);
+            } catch (NumberFormatException e) {
+            }
+        }
 
-        if (periodType == 1) {
-            startDate = LocalDate.of(year, month, 1);
-            endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
-        } else if (periodType == 2) {
-            int startMonth = ((month - 1) / 3) * 3 + 1;
-            startDate = LocalDate.of(year, startMonth, 1);
-            endDate = startDate.plusMonths(3).minusDays(1);
-        } else {
-            startDate = LocalDate.of(year, 1, 1);
-            endDate = LocalDate.of(year, 12, 31);
+        if (startDate == null || endDate == null) {
+            if (periodType == 1) {
+                startDate = LocalDate.of(year, month, 1);
+                endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+            } else if (periodType == 2) {
+                int startMonth = ((month - 1) / 3) * 3 + 1;
+                startDate = LocalDate.of(year, startMonth, 1);
+                endDate = startDate.plusMonths(3).minusDays(1);
+            } else {
+                startDate = LocalDate.of(year, 1, 1);
+                endDate = LocalDate.of(year, 12, 31);
+            }
         }
 
         List<PurchaseRequest> requests = requestMapper.selectList(
@@ -148,8 +162,10 @@ public class DemandSummaryService {
         );
 
         if (materialCategory != null && !materialCategory.isEmpty()) {
+            String finalMaterialCategory = materialCategory;
             allItems = allItems.stream()
-                .filter(item -> materialCategory.equals(item.getMaterialCategory()))
+                .filter(item -> finalMaterialCategory.equals(item.getMaterialCategory()) 
+                    || finalMaterialCategory.equals(String.valueOf(item.getMaterialCategory())))
                 .collect(Collectors.toList());
         }
 
@@ -163,11 +179,13 @@ public class DemandSummaryService {
             ));
 
         String summaryNo = generateSummaryNo();
-        String summaryName = "需求汇总-" + year + "年" + (periodType == 1 ? month + "月" : periodType == 2 ? "第" + ((month - 1) / 3 + 1) + "季度" : "年度");
+        String finalSummaryName = (summaryName != null && !summaryName.isEmpty()) 
+            ? summaryName 
+            : "需求汇总-" + year + "年" + (periodType == 1 ? month + "月" : periodType == 2 ? "第" + ((month - 1) / 3 + 1) + "季度" : "年度");
 
         DemandSummary summary = new DemandSummary();
         summary.setSummaryNo(summaryNo);
-        summary.setSummaryName(summaryName);
+        summary.setSummaryName(finalSummaryName);
         summary.setMaterialCategory(materialCategory);
         summary.setPeriodType(periodType);
         summary.setYear(year);
