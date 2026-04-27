@@ -72,6 +72,22 @@
             <el-menu-item index="/scm/kpi">多维考核</el-menu-item>
             <el-menu-item index="/scm/report">考核报告</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/scm/collaboration">
+            <template #title>
+              <el-icon><Connection /></el-icon>
+              <span>采购全流程协同管理</span>
+            </template>
+            <el-sub-menu index="/scm/purchase-req-plan">
+              <template #title>
+                <el-icon><ShoppingCart /></el-icon>
+                <span>采购需求与计划</span>
+              </template>
+              <el-menu-item index="/scm/purchase-request">采购申请</el-menu-item>
+              <el-menu-item index="/scm/demand-summary">需求汇总</el-menu-item>
+              <el-menu-item index="/scm/purchase-plan">智能补货</el-menu-item>
+              <el-menu-item index="/scm/oa-approval">审批联动</el-menu-item>
+            </el-sub-menu>
+          </el-sub-menu>
         </el-sub-menu>
       </el-menu>
     </el-aside>
