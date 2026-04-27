@@ -1726,12 +1726,12 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
 
     private void checkAndCreatePurchaseRequestNewTable() {
         try {
-            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_request_new'";
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_request'";
             Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
             
             if (count == null || count == 0) {
                 String createSql = """
-                    CREATE TABLE scm_purchase_request_new (
+                    CREATE TABLE scm_purchase_request (
                         id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
                         req_no VARCHAR(50) COMMENT '申请单编号',
                         req_title VARCHAR(200) COMMENT '申请单标题',
@@ -1761,12 +1761,12 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
                         KEY idx_req_no (req_no),
                         KEY idx_status (status),
                         KEY idx_approval_status (approval_status)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购申请表（新）'
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购申请表'
                     """;
                 jdbcTemplate.execute(createSql);
-                log.info("创建采购申请表成功: scm_purchase_request_new");
+                log.info("创建采购申请表成功: scm_purchase_request");
             } else {
-                log.debug("采购申请表已存在: scm_purchase_request_new");
+                log.debug("采购申请表已存在: scm_purchase_request");
             }
         } catch (Exception e) {
             log.error("检查或创建采购申请表失败", e);
@@ -2220,7 +2220,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             jdbcTemplate.execute("SET NAMES utf8mb4");
             jdbcTemplate.execute("SET CHARACTER SET utf8mb4");
             
-            String requestCountSql = "SELECT COUNT(*) FROM scm_purchase_request_new WHERE is_deleted = 0";
+            String requestCountSql = "SELECT COUNT(*) FROM scm_purchase_request WHERE is_deleted = 0";
             Integer requestCount = jdbcTemplate.queryForObject(requestCountSql, Integer.class);
             
             if (requestCount == null || requestCount < 30) {
@@ -2256,9 +2256,474 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
                 log.info("生产工单测试数据已存在: {}条", workOrderCount);
             }
             
+            String requestItemCountSql = "SELECT COUNT(*) FROM scm_purchase_request_item WHERE is_deleted = 0";
+            Integer requestItemCount = jdbcTemplate.queryForObject(requestItemCountSql, Integer.class);
+            
+            if (requestItemCount == null || requestItemCount < 50) {
+                insertPurchaseRequestItemTestData();
+            } else {
+                log.info("采购申请明细测试数据已存在: {}条", requestItemCount);
+            }
+            
+            String summaryCountSql = "SELECT COUNT(*) FROM scm_demand_summary WHERE is_deleted = 0";
+            Integer summaryCount = jdbcTemplate.queryForObject(summaryCountSql, Integer.class);
+            
+            if (summaryCount == null || summaryCount < 30) {
+                insertDemandSummaryTestData();
+            } else {
+                log.info("需求汇总测试数据已存在: {}条", summaryCount);
+            }
+            
+            String planCountSql = "SELECT COUNT(*) FROM scm_purchase_plan WHERE is_deleted = 0";
+            Integer planCount = jdbcTemplate.queryForObject(planCountSql, Integer.class);
+            
+            if (planCount == null || planCount < 30) {
+                insertPurchasePlanTestData();
+            } else {
+                log.info("采购计划测试数据已存在: {}条", planCount);
+            }
+            
+            String approvalCountSql = "SELECT COUNT(*) FROM scm_oa_approval WHERE is_deleted = 0";
+            Integer approvalCount = jdbcTemplate.queryForObject(approvalCountSql, Integer.class);
+            
+            if (approvalCount == null || approvalCount < 30) {
+                insertApprovalTestData();
+            } else {
+                log.info("审批联动测试数据已存在: {}条", approvalCount);
+            }
+            
         } catch (Exception e) {
             log.error("插入采购全流程协同测试数据失败", e);
         }
+    }
+
+    private void insertPurchaseRequestItemTestData() {
+        try {
+            List<Map<String, Object>> requests = jdbcTemplate.queryForList(
+                "SELECT id, req_no, req_title FROM scm_purchase_request WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (requests.isEmpty()) {
+                log.warn("没有采购申请数据，无法生成采购申请明细测试数据");
+                return;
+            }
+            
+            String[] materialNames = {
+                "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+                "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+                "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+                "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+                "电机", "传感器", "控制器", "显示屏", "开关按钮"
+            };
+            
+            String[] specs = {"304", "6061", "T2", "PP", "EPDM", "SMT", "DIP", "SMD", "RJ45", "RVV"};
+            String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
+            String[] categories = {"1", "2", "3"};
+            
+            String insertSql = """
+                INSERT INTO scm_purchase_request_item 
+                (request_id, material_code, material_name, material_spec, material_unit, material_category,
+                 quantity, unit_price, total_price, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < requests.size(); i++) {
+                Map<String, Object> request = requests.get(i);
+                Long requestId = ((Number) request.get("id")).longValue();
+                
+                int itemCount = 2 + (i % 4);
+                
+                for (int j = 0; j < itemCount; j++) {
+                    int materialIndex = (i * 3 + j) % materialNames.length;
+                    String materialName = materialNames[materialIndex];
+                    String materialCode = "MAT" + String.format("%03d", materialIndex + 1);
+                    String spec = specs[materialIndex % specs.length];
+                    String unit = units[materialIndex % units.length];
+                    String category = categories[materialIndex % categories.length];
+                    
+                    java.math.BigDecimal quantity = new java.math.BigDecimal(10 + materialIndex * 5);
+                    java.math.BigDecimal unitPrice = new java.math.BigDecimal(100 + materialIndex * 50);
+                    java.math.BigDecimal totalPrice = quantity.multiply(unitPrice);
+                    String remark = "采购申请明细测试数据" + (inserted + 1);
+                    
+                    try {
+                        jdbcTemplate.update(insertSql,
+                            requestId, materialCode, materialName, spec, unit, category,
+                            quantity, unitPrice, totalPrice, remark
+                        );
+                        inserted++;
+                    } catch (Exception e) {
+                        log.warn("插入采购申请明细测试数据失败: {} - {}", requestId, e.getMessage());
+                    }
+                }
+            }
+            
+            log.info("已插入{}条采购申请明细测试数据", inserted);
+            
+        } catch (Exception e) {
+            log.error("插入采购申请明细测试数据失败", e);
+        }
+    }
+
+    private void insertDemandSummaryTestData() {
+        LocalDate today = LocalDate.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+        
+        String[] materialNames = {
+            "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+            "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+            "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+            "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+            "电机", "传感器", "控制器", "显示屏", "开关按钮"
+        };
+        
+        String[] specs = {"304", "6061", "T2", "PP", "EPDM", "SMT", "DIP", "SMD", "RJ45", "RVV"};
+        String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
+        String[] categories = {"1", "2", "3"};
+        String[] statuses = {"DRAFT", "CONFIRMED", "PROCESSED"};
+        
+        String insertSummarySql = """
+            INSERT INTO scm_demand_summary 
+            (summary_no, summary_name, material_category, period_type, year, month,
+             start_date, end_date, request_count, item_count, total_quantity, estimated_amount,
+             status, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        String insertItemSql = """
+            INSERT INTO scm_demand_summary_item 
+            (summary_id, material_code, material_name, material_spec, material_unit, material_category,
+             source_request_count, total_quantity, avg_unit_price, estimated_amount, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int summaryInserted = 0;
+        int itemInserted = 0;
+        
+        for (int i = 0; i < 35; i++) {
+            String summaryNo = "DS" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1);
+            int periodType = (i % 3) + 1;
+            int year = today.getYear() - (i / 12);
+            int month = (i % 12) + 1;
+            
+            LocalDate startDate;
+            LocalDate endDate;
+            
+            if (periodType == 1) {
+                startDate = LocalDate.of(year, month, 1);
+                endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+            } else if (periodType == 2) {
+                int startMonth = ((month - 1) / 3) * 3 + 1;
+                startDate = LocalDate.of(year, startMonth, 1);
+                endDate = startDate.plusMonths(3).minusDays(1);
+            } else {
+                startDate = LocalDate.of(year, 1, 1);
+                endDate = LocalDate.of(year, 12, 31);
+            }
+            
+            int requestCount = 3 + (i % 5);
+            int itemCount = 2 + (i % 4);
+            String status = statuses[i % statuses.length];
+            String category = categories[i % categories.length];
+            
+            java.math.BigDecimal totalQuantity = java.math.BigDecimal.ZERO;
+            java.math.BigDecimal estimatedAmount = java.math.BigDecimal.ZERO;
+            
+            List<Map<String, Object>> items = new ArrayList<>();
+            
+            for (int j = 0; j < itemCount; j++) {
+                int materialIndex = (i * 3 + j) % materialNames.length;
+                String materialName = materialNames[materialIndex];
+                String materialCode = "MAT" + String.format("%03d", materialIndex + 1);
+                String spec = specs[materialIndex % specs.length];
+                String unit = units[materialIndex % units.length];
+                String matCategory = categories[materialIndex % categories.length];
+                
+                int sourceCount = 1 + (j % 3);
+                java.math.BigDecimal qty = new java.math.BigDecimal(50 + materialIndex * 20);
+                java.math.BigDecimal avgPrice = new java.math.BigDecimal(100 + materialIndex * 50);
+                java.math.BigDecimal estAmount = qty.multiply(avgPrice);
+                
+                totalQuantity = totalQuantity.add(qty);
+                estimatedAmount = estimatedAmount.add(estAmount);
+                
+                Map<String, Object> item = new HashMap<>();
+                item.put("materialCode", materialCode);
+                item.put("materialName", materialName);
+                item.put("spec", spec);
+                item.put("unit", unit);
+                item.put("category", matCategory);
+                item.put("sourceCount", sourceCount);
+                item.put("qty", qty);
+                item.put("avgPrice", avgPrice);
+                item.put("estAmount", estAmount);
+                items.add(item);
+            }
+            
+            String summaryName = "需求汇总-" + year + "年" + (periodType == 1 ? month + "月" : periodType == 2 ? "第" + ((month - 1) / 3 + 1) + "季度" : "年度");
+            String remark = "需求汇总测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertSummarySql,
+                    summaryNo, summaryName, category, periodType, year, month,
+                    startDate, endDate, requestCount, itemCount, totalQuantity, estimatedAmount,
+                    status, remark
+                );
+                summaryInserted++;
+                
+                List<Map<String, Object>> summaryList = jdbcTemplate.queryForList(
+                    "SELECT id FROM scm_demand_summary WHERE summary_no = ?", summaryNo
+                );
+                if (!summaryList.isEmpty()) {
+                    Long summaryId = ((Number) summaryList.get(0).get("id")).longValue();
+                    
+                    for (Map<String, Object> item : items) {
+                        try {
+                            jdbcTemplate.update(insertItemSql,
+                                summaryId, 
+                                item.get("materialCode"), item.get("materialName"), item.get("spec"), 
+                                item.get("unit"), item.get("category"),
+                                item.get("sourceCount"), item.get("qty"), item.get("avgPrice"), item.get("estAmount"),
+                                "需求汇总明细测试数据" + (itemInserted + 1)
+                            );
+                            itemInserted++;
+                        } catch (Exception e) {
+                            log.warn("插入需求汇总明细测试数据失败: {} - {}", summaryId, e.getMessage());
+                        }
+                    }
+                }
+                
+            } catch (Exception e) {
+                log.warn("插入需求汇总测试数据失败: {} - {}", summaryNo, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条需求汇总测试数据，{}条明细数据", summaryInserted, itemInserted);
+    }
+
+    private void insertPurchasePlanTestData() {
+        LocalDate today = LocalDate.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+        
+        String[] materialNames = {
+            "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+            "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+            "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+            "轴承", "齿轮", "密封圈", "紧固件", "弹簧",
+            "电机", "传感器", "控制器", "显示屏", "开关按钮"
+        };
+        
+        String[] specs = {"304", "6061", "T2", "PP", "EPDM", "SMT", "DIP", "SMD", "RJ45", "RVV"};
+        String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
+        String[] categories = {"1", "2", "3"};
+        String[] sourceTypes = {"DEMAND_SUMMARY", "WORK_ORDER", "SAFETY_STOCK", "MANUAL", "BOTH"};
+        String[] statuses = {"DRAFT", "SUBMITTED", "APPROVED", "EXECUTING", "COMPLETED", "CANCELLED"};
+        
+        String insertPlanSql = """
+            INSERT INTO scm_purchase_plan 
+            (plan_no, plan_name, plan_type, source_type, year, month, quarter,
+             start_date, end_date, item_count, total_quantity, estimated_amount,
+             status, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        String insertItemSql = """
+            INSERT INTO scm_purchase_plan_item 
+            (plan_id, material_code, material_name, material_spec, material_unit, material_category,
+             required_quantity, stock_quantity, safety_stock, shortage_quantity, purchase_quantity,
+             unit_price, estimated_amount, recommended_supplier_id, recommended_supplier_name,
+             remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int planInserted = 0;
+        int itemInserted = 0;
+        
+        for (int i = 0; i < 35; i++) {
+            String planNo = "PP" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1);
+            int planType = (i % 5) + 1;
+            String sourceType = sourceTypes[i % sourceTypes.length];
+            int year = today.getYear() - (i / 12);
+            int month = (i % 12) + 1;
+            int quarter = ((month - 1) / 3) + 1;
+            
+            LocalDate startDate = LocalDate.of(year, month, 1);
+            LocalDate endDate = startDate.withDayOfMonth(startDate.lengthOfMonth());
+            
+            int itemCount = 2 + (i % 4);
+            String status = statuses[i % statuses.length];
+            
+            java.math.BigDecimal totalQuantity = java.math.BigDecimal.ZERO;
+            java.math.BigDecimal estimatedAmount = java.math.BigDecimal.ZERO;
+            
+            List<Map<String, Object>> items = new ArrayList<>();
+            
+            for (int j = 0; j < itemCount; j++) {
+                int materialIndex = (i * 3 + j) % materialNames.length;
+                String materialName = materialNames[materialIndex];
+                String materialCode = "MAT" + String.format("%03d", materialIndex + 1);
+                String spec = specs[materialIndex % specs.length];
+                String unit = units[materialIndex % units.length];
+                String category = categories[materialIndex % categories.length];
+                
+                java.math.BigDecimal requiredQty = new java.math.BigDecimal(100 + materialIndex * 50);
+                java.math.BigDecimal stockQty = new java.math.BigDecimal(20 + materialIndex * 10);
+                java.math.BigDecimal safetyStock = new java.math.BigDecimal(50 + materialIndex * 20);
+                java.math.BigDecimal shortageQty = requiredQty.add(safetyStock).subtract(stockQty);
+                if (shortageQty.compareTo(java.math.BigDecimal.ZERO) < 0) {
+                    shortageQty = java.math.BigDecimal.ZERO;
+                }
+                java.math.BigDecimal purchaseQty = shortageQty;
+                java.math.BigDecimal unitPrice = new java.math.BigDecimal(100 + materialIndex * 50);
+                java.math.BigDecimal estAmount = purchaseQty.multiply(unitPrice);
+                
+                totalQuantity = totalQuantity.add(purchaseQty);
+                estimatedAmount = estimatedAmount.add(estAmount);
+                
+                Map<String, Object> item = new HashMap<>();
+                item.put("materialCode", materialCode);
+                item.put("materialName", materialName);
+                item.put("spec", spec);
+                item.put("unit", unit);
+                item.put("category", category);
+                item.put("requiredQty", requiredQty);
+                item.put("stockQty", stockQty);
+                item.put("safetyStock", safetyStock);
+                item.put("shortageQty", shortageQty);
+                item.put("purchaseQty", purchaseQty);
+                item.put("unitPrice", unitPrice);
+                item.put("estAmount", estAmount);
+                item.put("supplierId", (long) (materialIndex % 3 + 1));
+                item.put("supplierName", "供应商" + (materialIndex % 3 + 1));
+                items.add(item);
+            }
+            
+            String planTypeName = "";
+            switch (planType) {
+                case 1: planTypeName = "月度计划"; break;
+                case 2: planTypeName = "季度计划"; break;
+                case 3: planTypeName = "年度计划"; break;
+                case 4: planTypeName = "紧急计划"; break;
+                case 5: planTypeName = "补货计划"; break;
+            }
+            String planName = planTypeName + "-" + year + "年" + month + "月";
+            String remark = "采购计划测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertPlanSql,
+                    planNo, planName, planType, sourceType, year, month, quarter,
+                    startDate, endDate, itemCount, totalQuantity, estimatedAmount,
+                    status, remark
+                );
+                planInserted++;
+                
+                List<Map<String, Object>> planList = jdbcTemplate.queryForList(
+                    "SELECT id FROM scm_purchase_plan WHERE plan_no = ?", planNo
+                );
+                if (!planList.isEmpty()) {
+                    Long planId = ((Number) planList.get(0).get("id")).longValue();
+                    
+                    for (Map<String, Object> item : items) {
+                        try {
+                            jdbcTemplate.update(insertItemSql,
+                                planId,
+                                item.get("materialCode"), item.get("materialName"), item.get("spec"),
+                                item.get("unit"), item.get("category"),
+                                item.get("requiredQty"), item.get("stockQty"), item.get("safetyStock"),
+                                item.get("shortageQty"), item.get("purchaseQty"),
+                                item.get("unitPrice"), item.get("estAmount"),
+                                item.get("supplierId"), item.get("supplierName"),
+                                "采购计划明细测试数据" + (itemInserted + 1)
+                            );
+                            itemInserted++;
+                        } catch (Exception e) {
+                            log.warn("插入采购计划明细测试数据失败: {} - {}", planId, e.getMessage());
+                        }
+                    }
+                }
+                
+            } catch (Exception e) {
+                log.warn("插入采购计划测试数据失败: {} - {}", planNo, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条采购计划测试数据，{}条明细数据", planInserted, itemInserted);
+    }
+
+    private void insertApprovalTestData() {
+        LocalDate today = LocalDate.now();
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+        
+        String[] approvalStatuses = {"DRAFT", "APPROVING", "APPROVED", "REJECTED", "WITHDRAWN"};
+        String[] approvers = {"审批专员", "财务主管", "采购经理", "总经理", "副总"};
+        
+        String insertSql = """
+            INSERT INTO scm_oa_approval 
+            (approval_no, source_type, source_id, source_no, approval_title,
+             current_approver_id, current_approver_name, approval_status, submit_time,
+             approval_time, approval_remark, approval_history, remark, is_deleted, create_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+            """;
+        
+        int inserted = 0;
+        
+        for (int i = 0; i < 40; i++) {
+            String approvalNo = "OA" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1);
+            int sourceType = (i % 3) + 1;
+            Long sourceId = (long) (i + 1);
+            String sourceNo = "";
+            
+            switch (sourceType) {
+                case 1: sourceNo = "PR" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1); break;
+                case 2: sourceNo = "PP" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1); break;
+                case 3: sourceNo = "PO" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1); break;
+            }
+            
+            String sourceTypeName = "";
+            switch (sourceType) {
+                case 1: sourceTypeName = "采购申请"; break;
+                case 2: sourceTypeName = "采购计划"; break;
+                case 3: sourceTypeName = "采购订单"; break;
+            }
+            
+            String approvalTitle = sourceTypeName + "审批-" + sourceNo;
+            String approvalStatus = approvalStatuses[i % approvalStatuses.length];
+            String approverName = approvers[i % approvers.length];
+            
+            LocalDateTime submitTime = today.minusDays(i).atTime(10, 0);
+            LocalDateTime approvalTime = null;
+            String approvalRemark = "";
+            String approvalHistory = "";
+            
+            if ("APPROVED".equals(approvalStatus) || "REJECTED".equals(approvalStatus)) {
+                approvalTime = submitTime.plusHours(2 + i % 8);
+                approvalRemark = "APPROVED".equals(approvalStatus) ? "审批通过" : "审批拒绝，请重新提交";
+                
+                Map<String, Object> historyNode = new HashMap<>();
+                historyNode.put("operator", approverName);
+                historyNode.put("action", "APPROVED".equals(approvalStatus) ? "APPROVE" : "REJECT");
+                historyNode.put("remark", approvalRemark);
+                historyNode.put("time", approvalTime.toString());
+                approvalHistory = historyNode.toString();
+            }
+            
+            String remark = "审批联动测试数据" + (i + 1);
+            
+            try {
+                jdbcTemplate.update(insertSql,
+                    approvalNo, sourceType, sourceId, sourceNo, approvalTitle,
+                    "1", approverName, approvalStatus, submitTime,
+                    approvalTime, approvalRemark, approvalHistory, remark
+                );
+                inserted++;
+            } catch (Exception e) {
+                log.warn("插入审批联动测试数据失败: {} - {}", approvalNo, e.getMessage());
+            }
+        }
+        
+        log.info("已插入{}条审批联动测试数据", inserted);
     }
 
     private void insertPurchaseRequestTestData() {
@@ -2283,7 +2748,7 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
         
         String insertRequestSql = """
-            INSERT INTO scm_purchase_request_new 
+            INSERT INTO scm_purchase_request 
             (req_no, req_title, req_dept, req_person, req_phone, required_date, 
              delivery_address, urgency, total_amount, budget_source, description, 
              status, approval_status, remark, is_deleted, create_by)
