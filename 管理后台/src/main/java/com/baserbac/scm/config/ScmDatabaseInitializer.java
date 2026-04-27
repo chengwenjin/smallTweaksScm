@@ -2751,14 +2751,15 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             INSERT INTO scm_purchase_request 
             (req_no, req_title, req_dept, req_person, req_phone, required_date, 
              delivery_address, urgency, total_amount, budget_source, description, 
-             status, approval_status, remark, is_deleted, create_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+             status, approval_status, remark, is_deleted, create_by, create_time)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin', ?)
             """;
         
         int inserted = 0;
         
         for (int i = 0; i < 40; i++) {
-            String reqNo = "PR" + today.minusDays(i).format(formatter) + String.format("%05d", i + 1);
+            LocalDate createDate = today.minusDays(i);
+            String reqNo = "PR" + createDate.format(formatter) + String.format("%05d", i + 1);
             String materialName = materialNames[i % materialNames.length];
             String reqTitle = "采购申请 - " + materialName + (i % 5 == 0 ? "（紧急）" : "");
             String dept = depts[i % depts.length];
@@ -2770,19 +2771,32 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             java.math.BigDecimal totalAmount = new java.math.BigDecimal(1000 + i * 500 + (int)(Math.random() * 10000));
             String budgetSource = i % 2 == 0 ? "年度预算" : "紧急采购预算";
             String description = "采购" + materialName + "，用于生产线维护和产品生产。";
-            int status = i % 6;
-            String approvalStatus = "DRAFT";
-            if (status == 2) approvalStatus = "APPROVING";
-            else if (status == 3) approvalStatus = "APPROVED";
-            else if (status == 4) approvalStatus = "REJECTED";
-            else if (status == 5) approvalStatus = "APPROVED";
+            
+            int status;
+            String approvalStatus;
+            if (i % 3 == 0) {
+                status = 2;
+                approvalStatus = "APPROVING";
+            } else if (i % 3 == 1) {
+                status = 3;
+                approvalStatus = "APPROVED";
+            } else {
+                status = i % 6;
+                approvalStatus = "DRAFT";
+                if (status == 2) approvalStatus = "APPROVING";
+                else if (status == 3) approvalStatus = "APPROVED";
+                else if (status == 4) approvalStatus = "REJECTED";
+                else if (status == 5) approvalStatus = "APPROVED";
+            }
+            
             String remark = "测试数据" + (i + 1);
+            java.sql.Timestamp createTime = java.sql.Timestamp.valueOf(createDate.atTime(java.time.LocalTime.of(9 + (i % 8), i % 60)));
             
             try {
                 jdbcTemplate.update(insertRequestSql,
                     reqNo, reqTitle, dept, person, phone, requiredDate,
                     address, urgency, totalAmount, budgetSource, description,
-                    status, approvalStatus, remark
+                    status, approvalStatus, remark, createTime
                 );
                 inserted++;
             } catch (Exception e) {

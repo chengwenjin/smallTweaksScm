@@ -4,6 +4,7 @@ import com.baserbac.annotation.OperationLog;
 import com.baserbac.common.result.R;
 import com.baserbac.common.result.PageResult;
 import com.baserbac.scm.dto.DemandSummaryQueryDTO;
+import com.baserbac.scm.dto.GenerateSummaryDTO;
 import com.baserbac.scm.entity.DemandSummary;
 import com.baserbac.scm.service.DemandSummaryService;
 import com.baserbac.scm.vo.DemandSummaryVO;
@@ -37,13 +38,9 @@ public class DemandSummaryController {
     @OperationLog(module = "需求汇总", value = "生成需求汇总")
     @Operation(summary = "生成需求汇总")
     @PostMapping("/generate")
-    public R<DemandSummary> generateSummary(
-            @RequestParam(required = false, defaultValue = "1") Integer periodType,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month,
-            @RequestParam(required = false) String materialCategory) {
+    public R<DemandSummary> generateSummary(@RequestBody GenerateSummaryDTO dto) {
         String operator = getCurrentOperator();
-        DemandSummary summary = summaryService.generateSummary(periodType, year, month, materialCategory, operator);
+        DemandSummary summary = summaryService.generateSummary(dto, operator);
         return R.success(summary);
     }
 
