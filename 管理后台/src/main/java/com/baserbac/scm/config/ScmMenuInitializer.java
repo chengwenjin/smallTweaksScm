@@ -104,6 +104,24 @@ public class ScmMenuInitializer implements CommandLineRunner {
             log.info("      [三级] 考核报告 (ID={}, parentId={})", reportMenuId, performanceMenuId);
             createReportButtons(reportMenuId);
             
+            Long collaborationMenuId = createCollaborationMenu(lifecycleMenuId);
+            log.info("    [二级] 采购全流程协同管理 (ID={}, parentId={})", collaborationMenuId, lifecycleMenuId);
+            
+            Long purchaseReqMenuId = createPurchaseReqPlanMenu(collaborationMenuId);
+            log.info("      [三级] 采购需求与计划 (ID={}, parentId={})", purchaseReqMenuId, collaborationMenuId);
+            
+            Long demandSummaryMenuId = createDemandSummaryMenu(purchaseReqMenuId);
+            log.info("        [四级] 需求汇总 (ID={}, parentId={})", demandSummaryMenuId, purchaseReqMenuId);
+            createDemandSummaryButtons(demandSummaryMenuId);
+            
+            Long replenishmentMenuId = createReplenishmentMenu(purchaseReqMenuId);
+            log.info("        [四级] 智能补货 (ID={}, parentId={})", replenishmentMenuId, purchaseReqMenuId);
+            createReplenishmentButtons(replenishmentMenuId);
+            
+            Long approvalMenuId = createApprovalMenu(purchaseReqMenuId);
+            log.info("        [四级] 审批联动 (ID={}, parentId={})", approvalMenuId, purchaseReqMenuId);
+            createApprovalButtons(approvalMenuId);
+            
             log.info("\n========================================");
             log.info("  SCM菜单初始化完成！");
             log.info("========================================");
@@ -147,7 +165,12 @@ public class ScmMenuInitializer implements CommandLineRunner {
                 "采购需求单",
                 "一键询价",
                 "智能比价",
-                "招投标管理"
+                "招投标管理",
+                "采购全流程协同管理",
+                "采购需求与计划",
+                "需求汇总",
+                "智能补货",
+                "审批联动"
             );
             
             LambdaQueryWrapper<SysMenu> scmWrapper = new LambdaQueryWrapper<>();
@@ -824,6 +847,151 @@ public class ScmMenuInitializer implements CommandLineRunner {
         
         buttons.add(createButton(parentId, "生成报告", "scm:report:generate", 1));
         buttons.add(createButton(parentId, "查看报告", "scm:report:view", 2));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createCollaborationMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("采购全流程协同管理");
+        menu.setMenuType(1);
+        menu.setPath("collaboration");
+        menu.setComponent("Layout");
+        menu.setIcon("Connection");
+        menu.setSortOrder(4);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 采购全流程协同管理, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createPurchaseReqPlanMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("采购需求与计划");
+        menu.setMenuType(1);
+        menu.setPath("purchase-req-plan");
+        menu.setComponent("Layout");
+        menu.setIcon("ShoppingCart");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 采购需求与计划, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createDemandSummaryMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("需求汇总");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:demand-summary:list");
+        menu.setPath("demand-summary");
+        menu.setComponent("scm/demand-summary/index");
+        menu.setIcon("Collection");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 需求汇总, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createDemandSummaryButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "新增申请", "scm:demand-summary:add", 1));
+        buttons.add(createButton(parentId, "生成汇总", "scm:demand-summary:generate", 2));
+        buttons.add(createButton(parentId, "查看详情", "scm:demand-summary:view", 3));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createReplenishmentMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("智能补货");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:replenishment:list");
+        menu.setPath("replenishment");
+        menu.setComponent("scm/replenishment/index");
+        menu.setIcon("Cpu");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 智能补货, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createReplenishmentButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "生成补货计划", "scm:replenishment:generate", 1));
+        buttons.add(createButton(parentId, "查看计划", "scm:replenishment:view", 2));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createApprovalMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("审批联动");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:approval:list");
+        menu.setPath("approval");
+        menu.setComponent("scm/approval/index");
+        menu.setIcon("Stamp");
+        menu.setSortOrder(3);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 审批联动, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createApprovalButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "提交审批", "scm:approval:submit", 1));
+        buttons.add(createButton(parentId, "处理审批", "scm:approval:process", 2));
+        buttons.add(createButton(parentId, "撤回审批", "scm:approval:withdraw", 3));
+        buttons.add(createButton(parentId, "查看详情", "scm:approval:view", 4));
         
         for (SysMenu btn : buttons) {
             menuMapper.insert(btn);
