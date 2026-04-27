@@ -172,7 +172,7 @@ public class PurchasePlanService {
             List<Supplier> suppliers = supplierMapper.selectList(
                 new LambdaQueryWrapper<Supplier>()
                     .eq(Supplier::getStatus, 1)
-                    .eq(Supplier::getMaterialCategory, getMaterialCategory(materialInfoMap.get(materialCode)))
+                    .eq(Supplier::getMaterialCategory, String.valueOf(getMaterialCategory(materialInfoMap.get(materialCode))))
                     .orderByDesc(Supplier::getGrade)
                     .last("LIMIT 1")
             );
@@ -182,7 +182,7 @@ public class PurchasePlanService {
             item.setMaterialName(getMaterialName(materialInfoMap.get(materialCode)));
             item.setMaterialSpec(getMaterialSpec(materialInfoMap.get(materialCode)));
             item.setMaterialUnit(getMaterialUnit(materialInfoMap.get(materialCode)));
-            item.setMaterialCategory(getMaterialCategory(materialInfoMap.get(materialCode)));
+            item.setMaterialCategory(String.valueOf(getMaterialCategory(materialInfoMap.get(materialCode))));
             item.setRequiredQuantity(demandQty);
             item.setStockQuantity(stockQty);
             item.setSafetyStock(safetyStock);
@@ -267,11 +267,6 @@ public class PurchasePlanService {
             new LambdaQueryWrapper<MaterialInventory>()
                 .isNotNull(MaterialInventory::getSafetyStock)
                 .gt(MaterialInventory::getSafetyStock, BigDecimal.ZERO)
-                .and(wrapper -> wrapper
-                    .le(MaterialInventory::getAvailableQuantity, MaterialInventory::getSafetyStock)
-                    .or()
-                    .isNull(MaterialInventory::getAvailableQuantity)
-                )
         );
 
         for (MaterialInventory inventory : lowStockItems) {
