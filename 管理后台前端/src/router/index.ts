@@ -138,6 +138,30 @@ const routes: RouteRecordRaw[] = [
         name: 'OaApprovalManagement',
         component: () => import('@/views/scm/OaApproval.vue'),
         meta: { title: '审批联动' }
+      },
+      {
+        path: 'scm/order-management',
+        name: 'OrderManagement',
+        component: () => import('@/views/scm/OrderManagement.vue'),
+        meta: { title: '订单管理' }
+      },
+      {
+        path: 'scm/progress-tracking',
+        name: 'ProgressTracking',
+        component: () => import('@/views/scm/ProgressTracking.vue'),
+        meta: { title: '进度追踪' }
+      },
+      {
+        path: 'scm/delivery-appointment',
+        name: 'DeliveryAppointment',
+        component: () => import('@/views/scm/DeliveryAppointment.vue'),
+        meta: { title: '送货预约' }
+      },
+      {
+        path: 'scm/incoming-inspection',
+        name: 'IncomingInspection',
+        component: () => import('@/views/scm/IncomingInspection.vue'),
+        meta: { title: '来料质检' }
       }
     ]
   }
