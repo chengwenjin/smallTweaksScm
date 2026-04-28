@@ -1716,8 +1716,16 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             checkAndCreatePurchasePlanItemTable();
             checkAndCreateOaApprovalTable();
             checkAndCreatePurchaseOrderTable();
+            checkAndCreatePurchaseOrderItemTable();
+            checkAndCreateOrderChangeTable();
+            checkAndCreateProductionProgressTable();
+            checkAndCreateShipmentTable();
+            checkAndCreateLogisticsTrackTable();
+            checkAndCreateDeliveryAppointmentTable();
+            checkAndCreateIncomingInspectionTable();
             
             insertPurchaseCollaborationTestData();
+            insertOrderExecutionTestData();
             
         } catch (Exception e) {
             log.error("检查或创建采购全流程协同表失败", e);
@@ -2988,5 +2996,915 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
         }
         
         log.info("已插入{}条生产工单测试数据", inserted);
+    }
+
+    private void checkAndCreatePurchaseOrderItemTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_purchase_order_item'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_purchase_order_item (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        material_category VARCHAR(100) COMMENT '物料类别',
+                        quantity DECIMAL(18,2) COMMENT '订单数量',
+                        received_quantity DECIMAL(18,2) COMMENT '已收货数量',
+                        unit_price DECIMAL(18,2) COMMENT '单价',
+                        total_price DECIMAL(18,2) COMMENT '总金额',
+                        delivery_date DATE COMMENT '交货日期',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_order_id (order_id),
+                        KEY idx_material_code (material_code)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='采购订单明细表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建采购订单明细表成功: scm_purchase_order_item");
+            } else {
+                log.debug("采购订单明细表已存在: scm_purchase_order_item");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建采购订单明细表失败", e);
+        }
+    }
+
+    private void checkAndCreateOrderChangeTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_order_change'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_order_change (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        change_no VARCHAR(50) COMMENT '变更单号',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        change_type TINYINT COMMENT '变更类型：1数量变更 2价格变更 3交货日期变更 4取消订单 5其他',
+                        change_reason VARCHAR(500) COMMENT '变更原因',
+                        change_content TEXT COMMENT '变更内容(JSON)',
+                        old_content TEXT COMMENT '原内容(JSON)',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0待提交 1待审批 2审批通过 3审批拒绝 4已取消',
+                        apply_time DATETIME COMMENT '申请时间',
+                        apply_by VARCHAR(50) COMMENT '申请人',
+                        approve_time DATETIME COMMENT '审批时间',
+                        approve_by VARCHAR(50) COMMENT '审批人',
+                        approve_remark VARCHAR(1000) COMMENT '审批备注',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_change_no (change_no),
+                        KEY idx_order_id (order_id),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单变更记录表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建订单变更记录表成功: scm_order_change");
+            } else {
+                log.debug("订单变更记录表已存在: scm_order_change");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建订单变更记录表失败", e);
+        }
+    }
+
+    private void checkAndCreateProductionProgressTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_production_progress'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_production_progress (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        order_item_id BIGINT COMMENT '订单明细ID',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        completed_quantity DECIMAL(18,2) COMMENT '已完成数量',
+                        progress_rate DECIMAL(10,2) COMMENT '进度百分比',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0待开始 1进行中 2已完成 3已暂停 4已延误',
+                        planned_start_date DATE COMMENT '计划开始日期',
+                        planned_end_date DATE COMMENT '计划完成日期',
+                        actual_start_date DATE COMMENT '实际开始日期',
+                        actual_end_date DATE COMMENT '实际完成日期',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_order_id (order_id),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生产进度表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建生产进度表成功: scm_production_progress");
+            } else {
+                log.debug("生产进度表已存在: scm_production_progress");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建生产进度表失败", e);
+        }
+    }
+
+    private void checkAndCreateShipmentTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_shipment'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_shipment (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        shipment_no VARCHAR(50) COMMENT '发货单号',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        total_quantity DECIMAL(18,2) COMMENT '发货总数量',
+                        shipment_date DATE COMMENT '发货日期',
+                        estimated_arrival_date DATE COMMENT '预计到达日期',
+                        actual_arrival_date DATE COMMENT '实际到达日期',
+                        logistics_company VARCHAR(100) COMMENT '物流公司',
+                        tracking_no VARCHAR(100) COMMENT '物流单号',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0待发货 1已发货 2运输中 3已送达 4已签收',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_shipment_no (shipment_no),
+                        KEY idx_order_id (order_id),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发货记录表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建发货记录表成功: scm_shipment");
+            } else {
+                log.debug("发货记录表已存在: scm_shipment");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建发货记录表失败", e);
+        }
+    }
+
+    private void checkAndCreateLogisticsTrackTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_logistics_track'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_logistics_track (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        shipment_id BIGINT COMMENT '发货单ID',
+                        shipment_no VARCHAR(50) COMMENT '发货单号',
+                        tracking_no VARCHAR(100) COMMENT '物流单号',
+                        track_time DATETIME COMMENT '轨迹时间',
+                        location VARCHAR(200) COMMENT '当前位置',
+                        description VARCHAR(500) COMMENT '轨迹描述',
+                        status TINYINT COMMENT '物流状态：0待发货 1已发货 2运输中 3已送达 4已签收',
+                        operator VARCHAR(50) COMMENT '操作人',
+                        remark VARCHAR(500) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_shipment_id (shipment_id),
+                        KEY idx_tracking_no (tracking_no)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='物流轨迹表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建物流轨迹表成功: scm_logistics_track");
+            } else {
+                log.debug("物流轨迹表已存在: scm_logistics_track");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建物流轨迹表失败", e);
+        }
+    }
+
+    private void checkAndCreateDeliveryAppointmentTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_delivery_appointment'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_delivery_appointment (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        appointment_no VARCHAR(50) COMMENT '预约单号',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        shipment_id BIGINT COMMENT '发货单ID',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        delivery_date DATE COMMENT '预约送货日期',
+                        time_slot VARCHAR(50) COMMENT '预约时间段',
+                        warehouse_code VARCHAR(50) COMMENT '仓库编码',
+                        warehouse_name VARCHAR(100) COMMENT '仓库名称',
+                        contact_person VARCHAR(50) COMMENT '联系人',
+                        contact_phone VARCHAR(20) COMMENT '联系电话',
+                        item_count INT COMMENT '物料种类数量',
+                        total_quantity DECIMAL(18,2) COMMENT '总数量',
+                        vehicle_no VARCHAR(50) COMMENT '车牌号',
+                        driver_name VARCHAR(50) COMMENT '司机姓名',
+                        driver_phone VARCHAR(20) COMMENT '司机电话',
+                        status TINYINT DEFAULT 0 COMMENT '状态：0待确认 1已确认 2已签到 3已完成 4已取消',
+                        check_in_time DATETIME COMMENT '签到时间',
+                        check_out_time DATETIME COMMENT '签退时间',
+                        warehouse_operator VARCHAR(50) COMMENT '仓库操作员',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        cancel_reason VARCHAR(500) COMMENT '取消原因',
+                        cancel_time DATETIME COMMENT '取消时间',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_appointment_no (appointment_no),
+                        KEY idx_order_id (order_id),
+                        KEY idx_delivery_date (delivery_date),
+                        KEY idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='送货预约表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建送货预约表成功: scm_delivery_appointment");
+            } else {
+                log.debug("送货预约表已存在: scm_delivery_appointment");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建送货预约表失败", e);
+        }
+    }
+
+    private void checkAndCreateIncomingInspectionTable() {
+        try {
+            String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_incoming_inspection'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            
+            if (count == null || count == 0) {
+                String createSql = """
+                    CREATE TABLE scm_incoming_inspection (
+                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                        inspection_no VARCHAR(50) COMMENT '质检单号',
+                        order_id BIGINT COMMENT '采购订单ID',
+                        order_no VARCHAR(50) COMMENT '订单编号',
+                        order_item_id BIGINT COMMENT '订单明细ID',
+                        shipment_id BIGINT COMMENT '发货单ID',
+                        material_code VARCHAR(50) COMMENT '物料编码',
+                        material_name VARCHAR(200) COMMENT '物料名称',
+                        material_spec VARCHAR(500) COMMENT '物料规格',
+                        material_unit VARCHAR(20) COMMENT '物料单位',
+                        supplier_id BIGINT COMMENT '供应商ID',
+                        supplier_name VARCHAR(200) COMMENT '供应商名称',
+                        batch_no VARCHAR(100) COMMENT '批次号',
+                        inspection_quantity DECIMAL(18,2) COMMENT '检验数量',
+                        sampling_quantity DECIMAL(18,2) COMMENT '抽样数量',
+                        qualified_quantity DECIMAL(18,2) COMMENT '合格数量',
+                        unqualified_quantity DECIMAL(18,2) COMMENT '不合格数量',
+                        pass_rate DECIMAL(10,2) COMMENT '合格率',
+                        result TINYINT DEFAULT 0 COMMENT '检验结果：0待检验 1合格 2让步接收 3退货 4待复检',
+                        inspection_time DATETIME COMMENT '检验时间',
+                        inspector VARCHAR(50) COMMENT '检验员',
+                        submit_time DATETIME COMMENT '提交时间',
+                        approve_time DATETIME COMMENT '审核时间',
+                        approver VARCHAR(50) COMMENT '审核人',
+                        handling_type TINYINT COMMENT '处理方式：1入库 2退货 3让步接收 4待复检',
+                        inspection_items TEXT COMMENT '检验项明细(JSON)',
+                        defect_description TEXT COMMENT '缺陷描述',
+                        photo_urls TEXT COMMENT '照片URL列表',
+                        remark VARCHAR(1000) COMMENT '备注',
+                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                        create_by VARCHAR(50) COMMENT '创建人',
+                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                        update_by VARCHAR(50) COMMENT '更新人',
+                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                        PRIMARY KEY (id),
+                        KEY idx_inspection_no (inspection_no),
+                        KEY idx_order_id (order_id),
+                        KEY idx_result (result)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='来料质检表'
+                    """;
+                jdbcTemplate.execute(createSql);
+                log.info("创建来料质检表成功: scm_incoming_inspection");
+            } else {
+                log.debug("来料质检表已存在: scm_incoming_inspection");
+            }
+        } catch (Exception e) {
+            log.error("检查或创建来料质检表失败", e);
+        }
+    }
+
+    private void insertOrderExecutionTestData() {
+        try {
+            jdbcTemplate.execute("SET NAMES utf8mb4");
+            jdbcTemplate.execute("SET CHARACTER SET utf8mb4");
+            
+            String orderCountSql = "SELECT COUNT(*) FROM scm_purchase_order WHERE is_deleted = 0";
+            Integer orderCount = jdbcTemplate.queryForObject(orderCountSql, Integer.class);
+            
+            if (orderCount == null || orderCount < 30) {
+                insertPurchaseOrderTestData();
+            } else {
+                log.info("采购订单测试数据已存在: {}条", orderCount);
+            }
+            
+            String orderItemCountSql = "SELECT COUNT(*) FROM scm_purchase_order_item WHERE is_deleted = 0";
+            Integer orderItemCount = jdbcTemplate.queryForObject(orderItemCountSql, Integer.class);
+            
+            if (orderItemCount == null || orderItemCount < 50) {
+                insertPurchaseOrderItemTestData();
+            } else {
+                log.info("采购订单明细测试数据已存在: {}条", orderItemCount);
+            }
+            
+            String changeCountSql = "SELECT COUNT(*) FROM scm_order_change WHERE is_deleted = 0";
+            Integer changeCount = jdbcTemplate.queryForObject(changeCountSql, Integer.class);
+            
+            if (changeCount == null || changeCount < 20) {
+                insertOrderChangeTestData();
+            } else {
+                log.info("订单变更测试数据已存在: {}条", changeCount);
+            }
+            
+            String progressCountSql = "SELECT COUNT(*) FROM scm_production_progress WHERE is_deleted = 0";
+            Integer progressCount = jdbcTemplate.queryForObject(progressCountSql, Integer.class);
+            
+            if (progressCount == null || progressCount < 30) {
+                insertProductionProgressTestData();
+            } else {
+                log.info("生产进度测试数据已存在: {}条", progressCount);
+            }
+            
+            String shipmentCountSql = "SELECT COUNT(*) FROM scm_shipment WHERE is_deleted = 0";
+            Integer shipmentCount = jdbcTemplate.queryForObject(shipmentCountSql, Integer.class);
+            
+            if (shipmentCount == null || shipmentCount < 20) {
+                insertShipmentTestData();
+            } else {
+                log.info("发货记录测试数据已存在: {}条", shipmentCount);
+            }
+            
+            String appointmentCountSql = "SELECT COUNT(*) FROM scm_delivery_appointment WHERE is_deleted = 0";
+            Integer appointmentCount = jdbcTemplate.queryForObject(appointmentCountSql, Integer.class);
+            
+            if (appointmentCount == null || appointmentCount < 20) {
+                insertDeliveryAppointmentTestData();
+            } else {
+                log.info("送货预约测试数据已存在: {}条", appointmentCount);
+            }
+            
+            String inspectionCountSql = "SELECT COUNT(*) FROM scm_incoming_inspection WHERE is_deleted = 0";
+            Integer inspectionCount = jdbcTemplate.queryForObject(inspectionCountSql, Integer.class);
+            
+            if (inspectionCount == null || inspectionCount < 20) {
+                insertIncomingInspectionTestData();
+            } else {
+                log.info("来料质检测试数据已存在: {}条", inspectionCount);
+            }
+            
+        } catch (Exception e) {
+            log.error("插入订单执行测试数据失败", e);
+        }
+    }
+
+    private void insertPurchaseOrderTestData() {
+        try {
+            List<Map<String, Object>> suppliers = jdbcTemplate.queryForList(
+                "SELECT id, supplier_code, supplier_name FROM scm_supplier WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (suppliers.isEmpty()) {
+                log.warn("没有供应商数据，无法生成采购订单测试数据");
+                return;
+            }
+            
+            LocalDate today = LocalDate.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+            
+            String[] orderNames = {
+                "不锈钢钢板采购订单", "铝合金型材采购订单", "电子元器件采购订单",
+                "电机马达采购订单", "传感器采购订单", "控制器采购订单",
+                "电缆线材采购订单", "密封件采购订单", "轴承采购订单",
+                "润滑油采购订单", "化工原料采购订单", "包装材料采购订单",
+                "紧固件采购订单", "液压元件采购订单", "气动元件采购订单",
+                "电气开关采购订单", "变压器采购订单", "电容器采购订单",
+                "电阻器采购订单", "连接器采购订单", "散热器采购订单",
+                "风扇采购订单", "水泵采购订单", "阀门采购订单",
+                "过滤器采购订单", "压力表采购订单", "流量计采购订单",
+                "温度传感器采购订单", "压力传感器采购订单", "生产线设备采购订单"
+            };
+            
+            String[] paymentTerms = {"月结30天", "月结60天", "预付30%货到付70%", "款到发货", "月结45天"};
+            String[] deliveryTerms = {"送货上门", "自提", "物流配送", "快递", "上门自提"};
+            
+            String insertSql = """
+                INSERT INTO scm_purchase_order 
+                (order_no, order_name, supplier_id, supplier_code, supplier_name,
+                 order_type, order_date, expected_delivery_date, item_count,
+                 total_quantity, total_amount, payment_terms, delivery_terms,
+                 delivery_address, contact_person, contact_phone, status, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < 30; i++) {
+                int supplierIndex = i % suppliers.size();
+                Map<String, Object> supplier = suppliers.get(supplierIndex);
+                Long supplierId = ((Number) supplier.get("id")).longValue();
+                String supplierCode = (String) supplier.get("supplier_code");
+                String supplierName = (String) supplier.get("supplier_name");
+                
+                String orderNo = "PO" + today.minusDays(30 - i).format(formatter) + String.format("%05d", i + 1);
+                String orderName = orderNames[i];
+                int orderType = (i % 3) + 1;
+                LocalDate orderDate = today.minusDays(30 - i);
+                LocalDate expectedDate = orderDate.plusDays(15 + i % 10);
+                int itemCount = 1 + (i % 3);
+                java.math.BigDecimal totalQty = new java.math.BigDecimal(100 + i * 50);
+                java.math.BigDecimal totalAmount = new java.math.BigDecimal(10000 + i * 5000);
+                String paymentTerm = paymentTerms[i % paymentTerms.length];
+                String deliveryTerm = deliveryTerms[i % deliveryTerms.length];
+                String address = "某某市某某区某某工业园区A栋仓库" + ((i % 5) + 1) + "号";
+                String contactPerson = "仓库管理员" + ((i % 4) + 1);
+                String contactPhone = "010-8888" + String.format("%04d", 1000 + i);
+                int status = i % 10;
+                
+                String remark = "采购订单测试数据" + (i + 1) + " - 供应商: " + supplierName;
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        orderNo, orderName, supplierId, supplierCode, supplierName,
+                        orderType, orderDate, expectedDate, itemCount,
+                        totalQty, totalAmount, paymentTerm, deliveryTerm,
+                        address, contactPerson, contactPhone, status, remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入采购订单测试数据失败: {} - {}", orderNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条采购订单测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入采购订单测试数据失败", e);
+        }
+    }
+
+    private void insertPurchaseOrderItemTestData() {
+        try {
+            List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                "SELECT id, order_no, order_name FROM scm_purchase_order WHERE is_deleted = 0 ORDER BY id"
+            );
+            
+            if (orders.isEmpty()) {
+                log.warn("没有采购订单数据，无法生成采购订单明细测试数据");
+                return;
+            }
+            
+            String[] materialNames = {
+                "不锈钢板", "铝型材", "铜排", "塑料颗粒", "橡胶密封条",
+                "电子元器件", "集成电路芯片", "电阻电容", "连接器", "电缆线",
+                "液压油", "润滑油", "冷却液", "清洗剂", "防锈剂",
+                "轴承", "齿轮", "密封圈", "紧固件", "弹簧"
+            };
+            
+            String[] specs = {"304-2mm", "6061-T5", "T2-3x20", "PP-500", "EPDM-10x5", "SMT-0805", "DIP-DIP8", "SMD-0603", "RJ45-8P8C", "RVV-3x1.5"};
+            String[] units = {"张", "件", "米", "千克", "个", "套", "台", "卷", "箱", "包"};
+            
+            String insertSql = """
+                INSERT INTO scm_purchase_order_item 
+                (order_id, material_code, material_name, material_spec, material_unit, material_category,
+                 quantity, received_quantity, unit_price, total_price, delivery_date, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < orders.size(); i++) {
+                Map<String, Object> order = orders.get(i);
+                Long orderId = ((Number) order.get("id")).longValue();
+                
+                int itemCount = 1 + (i % 3);
+                
+                for (int j = 0; j < itemCount; j++) {
+                    int materialIndex = (i * 2 + j) % materialNames.length;
+                    String materialName = materialNames[materialIndex];
+                    String materialCode = "MAT" + String.format("%03d", materialIndex + 1);
+                    String spec = specs[materialIndex % specs.length];
+                    String unit = units[materialIndex % units.length];
+                    String category = String.valueOf((materialIndex % 3) + 1);
+                    
+                    java.math.BigDecimal quantity = new java.math.BigDecimal(50 + materialIndex * 30);
+                    java.math.BigDecimal receivedQty = i % 2 == 0 ? quantity : quantity.multiply(new java.math.BigDecimal("0.5"));
+                    java.math.BigDecimal unitPrice = new java.math.BigDecimal(100 + materialIndex * 50);
+                    java.math.BigDecimal totalPrice = quantity.multiply(unitPrice);
+                    LocalDate deliveryDate = LocalDate.now().minusDays(15 - i);
+                    
+                    String remark = "采购订单明细测试数据" + (inserted + 1);
+                    
+                    try {
+                        jdbcTemplate.update(insertSql,
+                            orderId, materialCode, materialName, spec, unit, category,
+                            quantity, receivedQty, unitPrice, totalPrice, deliveryDate, remark
+                        );
+                        inserted++;
+                    } catch (Exception e) {
+                        log.warn("插入采购订单明细测试数据失败: {} - {}", orderId, e.getMessage());
+                    }
+                }
+            }
+            
+            log.info("已插入{}条采购订单明细测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入采购订单明细测试数据失败", e);
+        }
+    }
+
+    private void insertOrderChangeTestData() {
+        try {
+            List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                "SELECT id, order_no FROM scm_purchase_order WHERE is_deleted = 0 ORDER BY id LIMIT 20"
+            );
+            
+            if (orders.isEmpty()) {
+                log.warn("没有采购订单数据，无法生成订单变更测试数据");
+                return;
+            }
+            
+            LocalDate today = LocalDate.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+            
+            String[] reasons = {
+                "客户需求变更", "价格调整", "交货日期提前",
+                "交货日期延后", "数量调整", "规格变更",
+                "质量问题需要更换", "供应商产能不足", "运输问题调整",
+                "库存调整", "项目延期", "预算调整"
+            };
+            
+            String insertSql = """
+                INSERT INTO scm_order_change 
+                (change_no, order_id, order_no, change_type, change_reason,
+                 status, apply_time, apply_by, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < Math.min(20, orders.size()); i++) {
+                Map<String, Object> order = orders.get(i);
+                Long orderId = ((Number) order.get("id")).longValue();
+                String orderNo = (String) order.get("order_no");
+                
+                String changeNo = "OC" + today.minusDays(20 - i).format(formatter) + String.format("%04d", i + 1);
+                int changeType = (i % 5) + 1;
+                String reason = reasons[i % reasons.length];
+                int status = i % 5;
+                LocalDateTime applyTime = LocalDateTime.now().minusDays(20 - i);
+                
+                String remark = "订单变更测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        changeNo, orderId, orderNo, changeType, reason,
+                        status, applyTime, "采购专员" + (i % 4 + 1), remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入订单变更测试数据失败: {} - {}", changeNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条订单变更测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入订单变更测试数据失败", e);
+        }
+    }
+
+    private void insertProductionProgressTestData() {
+        try {
+            List<Map<String, Object>> orderItems = jdbcTemplate.queryForList(
+                "SELECT oi.id, oi.order_id, o.order_no, oi.material_name, oi.material_spec, oi.quantity " +
+                "FROM scm_purchase_order_item oi " +
+                "JOIN scm_purchase_order o ON oi.order_id = o.id " +
+                "WHERE oi.is_deleted = 0 ORDER BY oi.id"
+            );
+            
+            if (orderItems.isEmpty()) {
+                log.warn("没有采购订单明细数据，无法生成生产进度测试数据");
+                return;
+            }
+            
+            String insertSql = """
+                INSERT INTO scm_production_progress 
+                (order_id, order_no, order_item_id, material_name, material_spec,
+                 total_quantity, completed_quantity, progress_rate, status,
+                 planned_start_date, planned_end_date, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < Math.min(30, orderItems.size()); i++) {
+                Map<String, Object> item = orderItems.get(i);
+                Long orderItemId = ((Number) item.get("id")).longValue();
+                Long orderId = ((Number) item.get("order_id")).longValue();
+                String orderNo = (String) item.get("order_no");
+                String materialName = (String) item.get("material_name");
+                String materialSpec = (String) item.get("material_spec");
+                java.math.BigDecimal totalQty = (java.math.BigDecimal) item.get("quantity");
+                
+                java.math.BigDecimal completedRate = new java.math.BigDecimal(0.1 + i * 0.03);
+                if (completedRate.compareTo(java.math.BigDecimal.ONE) > 0) {
+                    completedRate = java.math.BigDecimal.ONE;
+                }
+                java.math.BigDecimal completedQty = totalQty.multiply(completedRate);
+                java.math.BigDecimal progressRate = completedRate.multiply(new java.math.BigDecimal(100)).setScale(2, java.math.RoundingMode.HALF_UP);
+                
+                int status;
+                if (progressRate.compareTo(java.math.BigDecimal.ZERO) == 0) {
+                    status = 0;
+                } else if (progressRate.compareTo(java.math.BigDecimal.valueOf(100)) == 0) {
+                    status = 2;
+                } else {
+                    status = 1;
+                }
+                
+                LocalDate plannedStart = LocalDate.now().minusDays(30 - i);
+                LocalDate plannedEnd = plannedStart.plusDays(20);
+                
+                String remark = "生产进度测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        orderId, orderNo, orderItemId, materialName, materialSpec,
+                        totalQty, completedQty, progressRate, status,
+                        plannedStart, plannedEnd, remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入生产进度测试数据失败: {} - {}", orderNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条生产进度测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入生产进度测试数据失败", e);
+        }
+    }
+
+    private void insertShipmentTestData() {
+        try {
+            List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                "SELECT o.id, o.order_no, o.supplier_id, o.supplier_name, o.expected_delivery_date " +
+                "FROM scm_purchase_order o WHERE o.is_deleted = 0 AND o.status >= 4 ORDER BY o.id LIMIT 20"
+            );
+            
+            if (orders.isEmpty()) {
+                log.warn("没有已确认的采购订单数据，无法生发货记录测试数据");
+                return;
+            }
+            
+            LocalDate today = LocalDate.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+            
+            String[] logisticsCompanies = {"顺丰速运", "德邦物流", "京东物流", "中通快递", "圆通速递", "申通快递", "韵达快递", "极兔速递"};
+            
+            String insertSql = """
+                INSERT INTO scm_shipment 
+                (shipment_no, order_id, order_no, supplier_id, supplier_name,
+                 total_quantity, shipment_date, estimated_arrival_date,
+                 logistics_company, tracking_no, status, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < Math.min(20, orders.size()); i++) {
+                Map<String, Object> order = orders.get(i);
+                Long orderId = ((Number) order.get("id")).longValue();
+                String orderNo = (String) order.get("order_no");
+                Long supplierId = ((Number) order.get("supplier_id")).longValue();
+                String supplierName = (String) order.get("supplier_name");
+                
+                String shipmentNo = "SH" + today.minusDays(20 - i).format(formatter) + String.format("%04d", i + 1);
+                java.math.BigDecimal totalQty = new java.math.BigDecimal(50 + i * 30);
+                LocalDate shipmentDate = today.minusDays(20 - i);
+                LocalDate estimatedArrival = shipmentDate.plusDays(3 + i % 5);
+                String logisticsCompany = logisticsCompanies[i % logisticsCompanies.length];
+                String trackingNo = "SF" + today.minusDays(20 - i).format(formatter) + String.format("%08d", 10000000 + i);
+                int status = i % 5;
+                
+                String remark = "发货记录测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        shipmentNo, orderId, orderNo, supplierId, supplierName,
+                        totalQty, shipmentDate, estimatedArrival,
+                        logisticsCompany, trackingNo, status, remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入发货记录测试数据失败: {} - {}", shipmentNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条发货记录测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入发货记录测试数据失败", e);
+        }
+    }
+
+    private void insertDeliveryAppointmentTestData() {
+        try {
+            List<Map<String, Object>> orders = jdbcTemplate.queryForList(
+                "SELECT o.id, o.order_no, o.supplier_id, o.supplier_name, o.delivery_address " +
+                "FROM scm_purchase_order o WHERE o.is_deleted = 0 ORDER BY o.id LIMIT 20"
+            );
+            
+            if (orders.isEmpty()) {
+                log.warn("没有采购订单数据，无法生成送货预约测试数据");
+                return;
+            }
+            
+            LocalDate today = LocalDate.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+            
+            String[] timeSlots = {"09:00-10:00", "10:00-11:00", "11:00-12:00", "13:00-14:00", "14:00-15:00", "15:00-16:00", "16:00-17:00"};
+            String[] warehouses = {"A仓库-原材料区", "B仓库-半成品区", "C仓库-成品区", "D仓库-备件区"};
+            String[] contactPersons = {"张师傅", "李师傅", "王师傅", "赵师傅"};
+            
+            String insertSql = """
+                INSERT INTO scm_delivery_appointment 
+                (appointment_no, order_id, order_no, supplier_id, supplier_name,
+                 delivery_date, time_slot, warehouse_name, contact_person, contact_phone,
+                 item_count, total_quantity, vehicle_no, driver_name, driver_phone,
+                 status, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < Math.min(20, orders.size()); i++) {
+                Map<String, Object> order = orders.get(i);
+                Long orderId = ((Number) order.get("id")).longValue();
+                String orderNo = (String) order.get("order_no");
+                Long supplierId = ((Number) order.get("supplier_id")).longValue();
+                String supplierName = (String) order.get("supplier_name");
+                
+                String appointmentNo = "DA" + today.minusDays(15 - i).format(formatter) + String.format("%04d", i + 1);
+                LocalDate deliveryDate = today.plusDays(i % 10);
+                String timeSlot = timeSlots[i % timeSlots.length];
+                String warehouse = warehouses[i % warehouses.length];
+                String contactPerson = contactPersons[i % contactPersons.length];
+                String contactPhone = "13800" + String.format("%06d", 138000 + i);
+                int itemCount = 1 + (i % 3);
+                java.math.BigDecimal totalQty = new java.math.BigDecimal(100 + i * 50);
+                String vehicleNo = "京A" + String.format("%05d", 10000 + i);
+                String driverName = "司机" + (i % 4 + 1);
+                String driverPhone = "13900" + String.format("%06d", 139000 + i);
+                int status = i % 5;
+                
+                String remark = "送货预约测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        appointmentNo, orderId, orderNo, supplierId, supplierName,
+                        deliveryDate, timeSlot, warehouse, contactPerson, contactPhone,
+                        itemCount, totalQty, vehicleNo, driverName, driverPhone,
+                        status, remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入送货预约测试数据失败: {} - {}", appointmentNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条送货预约测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入送货预约测试数据失败", e);
+        }
+    }
+
+    private void insertIncomingInspectionTestData() {
+        try {
+            List<Map<String, Object>> orderItems = jdbcTemplate.queryForList(
+                "SELECT oi.id, oi.order_id, o.order_no, oi.material_code, oi.material_name, oi.material_spec, oi.material_unit, " +
+                "o.supplier_id, o.supplier_name, oi.quantity " +
+                "FROM scm_purchase_order_item oi " +
+                "JOIN scm_purchase_order o ON oi.order_id = o.id " +
+                "WHERE oi.is_deleted = 0 ORDER BY oi.id LIMIT 20"
+            );
+            
+            if (orderItems.isEmpty()) {
+                log.warn("没有采购订单明细数据，无法生成来料质检测试数据");
+                return;
+            }
+            
+            LocalDate today = LocalDate.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyyMMdd");
+            
+            String[] inspectors = {"质检员张三", "质检员李四", "质检员王五", "质检员赵六"};
+            String[] batchNos = {"BATCH202401", "BATCH202402", "BATCH202403", "BATCH202404", "BATCH202405"};
+            
+            String insertSql = """
+                INSERT INTO scm_incoming_inspection 
+                (inspection_no, order_id, order_no, order_item_id, material_code, material_name,
+                 material_spec, material_unit, supplier_id, supplier_name, batch_no,
+                 inspection_quantity, sampling_quantity, qualified_quantity, unqualified_quantity,
+                 pass_rate, result, inspector, remark, is_deleted, create_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'admin')
+                """;
+            
+            int inserted = 0;
+            
+            for (int i = 0; i < Math.min(20, orderItems.size()); i++) {
+                Map<String, Object> item = orderItems.get(i);
+                Long orderItemId = ((Number) item.get("id")).longValue();
+                Long orderId = ((Number) item.get("order_id")).longValue();
+                String orderNo = (String) item.get("order_no");
+                String materialCode = (String) item.get("material_code");
+                String materialName = (String) item.get("material_name");
+                String materialSpec = (String) item.get("material_spec");
+                String materialUnit = (String) item.get("material_unit");
+                Long supplierId = ((Number) item.get("supplier_id")).longValue();
+                String supplierName = (String) item.get("supplier_name");
+                java.math.BigDecimal quantity = (java.math.BigDecimal) item.get("quantity");
+                
+                String inspectionNo = "II" + today.minusDays(15 - i).format(formatter) + String.format("%04d", i + 1);
+                String batchNo = batchNos[i % batchNos.length] + String.format("%03d", i);
+                
+                java.math.BigDecimal inspectionQty = quantity;
+                java.math.BigDecimal samplingQty = quantity.multiply(new java.math.BigDecimal("0.1")).setScale(2, java.math.RoundingMode.HALF_UP);
+                if (samplingQty.compareTo(java.math.BigDecimal.ONE) < 0) {
+                    samplingQty = java.math.BigDecimal.ONE;
+                }
+                
+                java.math.BigDecimal passRate;
+                int result;
+                
+                if (i % 4 == 0) {
+                    passRate = new java.math.BigDecimal("100.00");
+                    result = 1;
+                } else if (i % 4 == 1) {
+                    passRate = new java.math.BigDecimal("95.50");
+                    result = 2;
+                } else if (i % 4 == 2) {
+                    passRate = new java.math.BigDecimal("80.00");
+                    result = 3;
+                } else {
+                    passRate = new java.math.BigDecimal("85.00");
+                    result = 4;
+                }
+                
+                java.math.BigDecimal qualifiedQty = inspectionQty.multiply(passRate).divide(new java.math.BigDecimal(100), 2, java.math.RoundingMode.HALF_UP);
+                java.math.BigDecimal unqualifiedQty = inspectionQty.subtract(qualifiedQty);
+                
+                String inspector = inspectors[i % inspectors.length];
+                String remark = "来料质检测试数据" + (i + 1);
+                
+                try {
+                    jdbcTemplate.update(insertSql,
+                        inspectionNo, orderId, orderNo, orderItemId, materialCode, materialName,
+                        materialSpec, materialUnit, supplierId, supplierName, batchNo,
+                        inspectionQty, samplingQty, qualifiedQty, unqualifiedQty,
+                        passRate, result, inspector, remark
+                    );
+                    inserted++;
+                } catch (Exception e) {
+                    log.warn("插入来料质检测试数据失败: {} - {}", inspectionNo, e.getMessage());
+                }
+            }
+            
+            log.info("已插入{}条来料质检测试数据", inserted);
+        } catch (Exception e) {
+            log.error("插入来料质检测试数据失败", e);
+        }
     }
 }

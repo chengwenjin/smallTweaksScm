@@ -89,6 +89,16 @@
             <el-menu-item index="/scm/purchase-plan">智能补货</el-menu-item>
             <el-menu-item index="/scm/oa-approval">审批联动</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="/collaboration/order-execution">
+            <template #title>
+              <el-icon><List /></el-icon>
+              <span>订单执行与跟踪</span>
+            </template>
+            <el-menu-item index="/scm/order-management">订单管理</el-menu-item>
+            <el-menu-item index="/scm/progress-tracking">进度追踪</el-menu-item>
+            <el-menu-item index="/scm/delivery-appointment">送货预约</el-menu-item>
+            <el-menu-item index="/scm/incoming-inspection">来料质检</el-menu-item>
+          </el-sub-menu>
         </el-sub-menu>
       </el-menu>
     </el-aside>

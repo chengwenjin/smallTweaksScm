@@ -122,6 +122,25 @@ public class ScmMenuInitializer implements CommandLineRunner {
             log.info("        [四级] 审批联动 (ID={}, parentId={})", approvalMenuId, purchaseReqMenuId);
             createApprovalButtons(approvalMenuId);
             
+            Long orderExecMenuId = createOrderExecutionMenu(collaborationMenuId);
+            log.info("      [三级] 订单执行与跟踪 (ID={}, parentId={})", orderExecMenuId, collaborationMenuId);
+            
+            Long orderMenuId = createOrderManagementMenu(orderExecMenuId);
+            log.info("        [四级] 订单管理 (ID={}, parentId={})", orderMenuId, orderExecMenuId);
+            createOrderManagementButtons(orderMenuId);
+            
+            Long progressMenuId = createProgressTrackingMenu(orderExecMenuId);
+            log.info("        [四级] 进度追踪 (ID={}, parentId={})", progressMenuId, orderExecMenuId);
+            createProgressTrackingButtons(progressMenuId);
+            
+            Long appointmentMenuId = createDeliveryAppointmentMenu(orderExecMenuId);
+            log.info("        [四级] 送货预约 (ID={}, parentId={})", appointmentMenuId, orderExecMenuId);
+            createDeliveryAppointmentButtons(appointmentMenuId);
+            
+            Long inspectionMenuId = createIncomingInspectionMenu(orderExecMenuId);
+            log.info("        [四级] 来料质检 (ID={}, parentId={})", inspectionMenuId, orderExecMenuId);
+            createIncomingInspectionButtons(inspectionMenuId);
+            
             log.info("\n========================================");
             log.info("  SCM菜单初始化完成！");
             log.info("========================================");
@@ -992,6 +1011,173 @@ public class ScmMenuInitializer implements CommandLineRunner {
         buttons.add(createButton(parentId, "处理审批", "scm:approval:process", 2));
         buttons.add(createButton(parentId, "撤回审批", "scm:approval:withdraw", 3));
         buttons.add(createButton(parentId, "查看详情", "scm:approval:view", 4));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createOrderExecutionMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("订单执行与跟踪");
+        menu.setMenuType(1);
+        menu.setPath("order-execution");
+        menu.setComponent("Layout");
+        menu.setIcon("List");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 订单执行与跟踪, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private Long createOrderManagementMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("订单管理");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:order:list");
+        menu.setPath("order-management");
+        menu.setComponent("scm/order-management/index");
+        menu.setIcon("Document");
+        menu.setSortOrder(1);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 订单管理, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createOrderManagementButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "创建订单", "scm:order:add", 1));
+        buttons.add(createButton(parentId, "编辑订单", "scm:order:edit", 2));
+        buttons.add(createButton(parentId, "下发订单", "scm:order:issue", 3));
+        buttons.add(createButton(parentId, "确认订单", "scm:order:confirm", 4));
+        buttons.add(createButton(parentId, "变更订单", "scm:order:change", 5));
+        buttons.add(createButton(parentId, "取消订单", "scm:order:cancel", 6));
+        buttons.add(createButton(parentId, "查看详情", "scm:order:view", 7));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createProgressTrackingMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("进度追踪");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:progress:list");
+        menu.setPath("progress-tracking");
+        menu.setComponent("scm/progress-tracking/index");
+        menu.setIcon("TrendCharts");
+        menu.setSortOrder(2);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 进度追踪, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createProgressTrackingButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "更新进度", "scm:progress:edit", 1));
+        buttons.add(createButton(parentId, "查看物流", "scm:progress:logistics", 2));
+        buttons.add(createButton(parentId, "发货管理", "scm:progress:shipment", 3));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createDeliveryAppointmentMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("送货预约");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:appointment:list");
+        menu.setPath("delivery-appointment");
+        menu.setComponent("scm/delivery-appointment/index");
+        menu.setIcon("Calendar");
+        menu.setSortOrder(3);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 送货预约, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createDeliveryAppointmentButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "创建预约", "scm:appointment:add", 1));
+        buttons.add(createButton(parentId, "确认预约", "scm:appointment:confirm", 2));
+        buttons.add(createButton(parentId, "签到", "scm:appointment:checkin", 3));
+        buttons.add(createButton(parentId, "完成", "scm:appointment:complete", 4));
+        buttons.add(createButton(parentId, "取消", "scm:appointment:cancel", 5));
+        
+        for (SysMenu btn : buttons) {
+            menuMapper.insert(btn);
+            assignToAdmin(btn.getId());
+            log.info("创建按钮: {}, ID={}", btn.getMenuName(), btn.getId());
+        }
+    }
+
+    private Long createIncomingInspectionMenu(Long parentId) {
+        SysMenu menu = new SysMenu();
+        menu.setParentId(parentId);
+        menu.setMenuName("来料质检");
+        menu.setMenuType(2);
+        menu.setPermissionKey("scm:inspection:list");
+        menu.setPath("incoming-inspection");
+        menu.setComponent("scm/incoming-inspection/index");
+        menu.setIcon("Quality");
+        menu.setSortOrder(4);
+        menu.setIsVisible(1);
+        menu.setStatus(1);
+        menu.setIsSystem(1);
+        menuMapper.insert(menu);
+        
+        assignToAdmin(menu.getId());
+        
+        log.info("创建菜单: 来料质检, ID={}", menu.getId());
+        return menu.getId();
+    }
+
+    private void createIncomingInspectionButtons(Long parentId) {
+        List<SysMenu> buttons = new ArrayList<>();
+        
+        buttons.add(createButton(parentId, "创建质检", "scm:inspection:add", 1));
+        buttons.add(createButton(parentId, "提交质检", "scm:inspection:submit", 2));
+        buttons.add(createButton(parentId, "审核质检", "scm:inspection:approve", 3));
+        buttons.add(createButton(parentId, "查看详情", "scm:inspection:view", 4));
         
         for (SysMenu btn : buttons) {
             menuMapper.insert(btn);
