@@ -3088,39 +3088,44 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_production_progress'";
             Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
             
-            if (count == null || count == 0) {
-                String createSql = """
-                    CREATE TABLE scm_production_progress (
-                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-                        order_id BIGINT COMMENT '采购订单ID',
-                        order_no VARCHAR(50) COMMENT '订单编号',
-                        order_item_id BIGINT COMMENT '订单明细ID',
-                        material_name VARCHAR(200) COMMENT '物料名称',
-                        material_spec VARCHAR(500) COMMENT '物料规格',
-                        total_quantity DECIMAL(18,2) COMMENT '总数量',
-                        completed_quantity DECIMAL(18,2) COMMENT '已完成数量',
-                        progress_rate DECIMAL(10,2) COMMENT '进度百分比',
-                        status TINYINT DEFAULT 0 COMMENT '状态：0待开始 1进行中 2已完成 3已暂停 4已延误',
-                        planned_start_date DATE COMMENT '计划开始日期',
-                        planned_end_date DATE COMMENT '计划完成日期',
-                        actual_start_date DATE COMMENT '实际开始日期',
-                        actual_end_date DATE COMMENT '实际完成日期',
-                        remark VARCHAR(1000) COMMENT '备注',
-                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
-                        create_by VARCHAR(50) COMMENT '创建人',
-                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                        update_by VARCHAR(50) COMMENT '更新人',
-                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                        PRIMARY KEY (id),
-                        KEY idx_order_id (order_id),
-                        KEY idx_status (status)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生产进度表'
-                    """;
-                jdbcTemplate.execute(createSql);
-                log.info("创建生产进度表成功: scm_production_progress");
-            } else {
-                log.debug("生产进度表已存在: scm_production_progress");
+            if (count != null && count > 0) {
+                jdbcTemplate.execute("DROP TABLE IF EXISTS scm_production_progress");
+                log.info("删除旧的生产进度表: scm_production_progress");
             }
+            
+            String createSql = """
+                CREATE TABLE scm_production_progress (
+                    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                    order_id BIGINT COMMENT '采购订单ID',
+                    order_no VARCHAR(50) COMMENT '订单编号',
+                    order_item_id BIGINT COMMENT '订单明细ID',
+                    material_code VARCHAR(50) COMMENT '物料编码',
+                    material_name VARCHAR(200) COMMENT '物料名称',
+                    material_spec VARCHAR(500) COMMENT '物料规格',
+                    material_unit VARCHAR(20) COMMENT '物料单位',
+                    total_quantity DECIMAL(18,2) COMMENT '总数量',
+                    completed_quantity DECIMAL(18,2) COMMENT '已完成数量',
+                    progress_rate DECIMAL(10,2) COMMENT '进度百分比',
+                    progress_status TINYINT DEFAULT 0 COMMENT '进度状态：0待开始 1进行中 2已完成 3已暂停 4已延误',
+                    work_station VARCHAR(100) COMMENT '生产工位',
+                    responsible_person VARCHAR(50) COMMENT '负责人',
+                    estimated_start_date DATE COMMENT '预计开始日期',
+                    actual_start_date DATE COMMENT '实际开始日期',
+                    estimated_finish_date DATE COMMENT '预计完成日期',
+                    actual_finish_date DATE COMMENT '实际完成日期',
+                    remark VARCHAR(1000) COMMENT '备注',
+                    is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                    create_by VARCHAR(50) COMMENT '创建人',
+                    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    update_by VARCHAR(50) COMMENT '更新人',
+                    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    PRIMARY KEY (id),
+                    KEY idx_order_id (order_id),
+                    KEY idx_progress_status (progress_status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='生产进度表'
+                """;
+            jdbcTemplate.execute(createSql);
+            log.info("创建生产进度表成功: scm_production_progress");
         } catch (Exception e) {
             log.error("检查或创建生产进度表失败", e);
         }
@@ -3131,39 +3136,48 @@ public class ScmDatabaseInitializer implements CommandLineRunner {
             String checkSql = "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'scm_shipment'";
             Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
             
-            if (count == null || count == 0) {
-                String createSql = """
-                    CREATE TABLE scm_shipment (
-                        id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
-                        shipment_no VARCHAR(50) COMMENT '发货单号',
-                        order_id BIGINT COMMENT '采购订单ID',
-                        order_no VARCHAR(50) COMMENT '订单编号',
-                        supplier_id BIGINT COMMENT '供应商ID',
-                        supplier_name VARCHAR(200) COMMENT '供应商名称',
-                        total_quantity DECIMAL(18,2) COMMENT '发货总数量',
-                        shipment_date DATE COMMENT '发货日期',
-                        estimated_arrival_date DATE COMMENT '预计到达日期',
-                        actual_arrival_date DATE COMMENT '实际到达日期',
-                        logistics_company VARCHAR(100) COMMENT '物流公司',
-                        tracking_no VARCHAR(100) COMMENT '物流单号',
-                        status TINYINT DEFAULT 0 COMMENT '状态：0待发货 1已发货 2运输中 3已送达 4已签收',
-                        remark VARCHAR(1000) COMMENT '备注',
-                        is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
-                        create_by VARCHAR(50) COMMENT '创建人',
-                        create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-                        update_by VARCHAR(50) COMMENT '更新人',
-                        update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-                        PRIMARY KEY (id),
-                        KEY idx_shipment_no (shipment_no),
-                        KEY idx_order_id (order_id),
-                        KEY idx_status (status)
-                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发货记录表'
-                    """;
-                jdbcTemplate.execute(createSql);
-                log.info("创建发货记录表成功: scm_shipment");
-            } else {
-                log.debug("发货记录表已存在: scm_shipment");
+            if (count != null && count > 0) {
+                jdbcTemplate.execute("DROP TABLE IF EXISTS scm_shipment");
+                log.info("删除旧的发货记录表: scm_shipment");
             }
+            
+            String createSql = """
+                CREATE TABLE scm_shipment (
+                    id BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                    shipment_no VARCHAR(50) COMMENT '发货单号',
+                    order_id BIGINT COMMENT '采购订单ID',
+                    order_no VARCHAR(50) COMMENT '订单编号',
+                    supplier_id BIGINT COMMENT '供应商ID',
+                    supplier_name VARCHAR(200) COMMENT '供应商名称',
+                    shipment_type TINYINT COMMENT '发货类型：1正常发货 2紧急发货 3补发',
+                    shipment_date DATE COMMENT '发货日期',
+                    estimated_arrival_date DATE COMMENT '预计到达日期',
+                    actual_arrival_date DATE COMMENT '实际到达日期',
+                    item_count INT COMMENT '物料种类数量',
+                    total_quantity DECIMAL(18,2) COMMENT '发货总数量',
+                    total_weight DECIMAL(18,2) COMMENT '总重量',
+                    shipping_method VARCHAR(100) COMMENT '运输方式',
+                    carrier VARCHAR(100) COMMENT '承运人/物流公司',
+                    waybill_no VARCHAR(100) COMMENT '运单号',
+                    departure_place VARCHAR(200) COMMENT '发货地',
+                    destination VARCHAR(500) COMMENT '目的地',
+                    contact_person VARCHAR(50) COMMENT '联系人',
+                    contact_phone VARCHAR(20) COMMENT '联系电话',
+                    status TINYINT DEFAULT 0 COMMENT '状态：0待发货 1已发货 2运输中 3已送达 4已签收',
+                    remark VARCHAR(1000) COMMENT '备注',
+                    is_deleted TINYINT DEFAULT 0 COMMENT '软删除',
+                    create_by VARCHAR(50) COMMENT '创建人',
+                    create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+                    update_by VARCHAR(50) COMMENT '更新人',
+                    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+                    PRIMARY KEY (id),
+                    KEY idx_shipment_no (shipment_no),
+                    KEY idx_order_id (order_id),
+                    KEY idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='发货记录表'
+                """;
+            jdbcTemplate.execute(createSql);
+            log.info("创建发货记录表成功: scm_shipment");
         } catch (Exception e) {
             log.error("检查或创建发货记录表失败", e);
         }
